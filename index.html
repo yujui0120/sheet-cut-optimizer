@@ -3,98 +3,142 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>木板最大利用率與裁切計算器</title>
+    <title>矩形木板最大利用率與裁切計算器</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
+    <!-- 畫面上方標題區 -->
     <header class="header">
-        <h1>木板最大利用率與裁切計算器</h1>
+        <h1>矩形木板最大利用率與裁切計算器</h1>
         <p>
-            v2.0
+            板材最佳化切割與周長統計工具
         </p>
     </header>
 
-    <div class="container">
-        <!-- 左側設定區 -->
-        <div class="panel">
-            <h2>1. 底板與參數設定</h2>
+    <div class="main-layout">
 
-            <div class="form-group">
-                <label for="unitSelect">單位選擇</label>
-                <select id="unitSelect" onchange="handleUnitChange(this.value)">
-                    <option value="mm" selected>mm (公厘)</option>
-                    <option value="cm">cm (公分)</option>
-                </select>
-            </div>
+        <!-- 左側控制區 (包含 1. 參數設定 與 2. 切片需求清單) -->
+        <div class="left-col">
 
-            <div class="form-group">
-                <label>底板尺寸 (長 × 寬)</label>
-                <div class="inline-group">
-                    <input type="number" id="boardW" value="2440" step="any" placeholder="長">
-                    <span>×</span>
-                    <input type="number" id="boardH" value="1220" step="any" placeholder="寬">
+            <!-- 獨立區塊 1: 參數設定 -->
+            <section class="card-panel">
+                <div class="panel-header">
+                    <span class="step-badge">1</span>
+                    <h2>參數設定</h2>
                 </div>
-            </div>
 
-            <div class="form-group">
-                <label for="gap">鋸縫 / 間隔 (Kerf Gap)</label>
-                <input type="number" id="gap" value="3" step="any" placeholder="鋸縫">
-            </div>
+                <div class="form-group">
+                    <label for="unitSelect">單位選擇</label>
+                    <select id="unitSelect" class="form-control" onchange="handleUnitChange(this.value)">
+                        <option value="mm" selected>mm (公厘)</option>
+                        <option value="cm">cm (公分)</option>
+                    </select>
+                </div>
 
-            <div class="checkbox-group">
-                <input type="checkbox" id="allowRotation" checked>
-                <label for="allowRotation">允許旋轉 90° 排版</label>
-            </div>
+                <div class="form-group">
+                    <label>底板尺寸 (長 × 寬)</label>
+                    <div class="inline-inputs">
+                        <input type="number" id="boardW" class="form-control" value="2440" step="any" placeholder="長">
+                        <span class="multiply-sign">×</span>
+                        <input type="number" id="boardH" class="form-control" value="1220" step="any" placeholder="寬">
+                    </div>
+                </div>
 
-            <h2 style="margin-top: 20px;">2. 切片需求清單</h2>
-            <div id="itemList">
-                <!-- 動態新增長寬組數 -->
-            </div>
-            <button class="btn-secondary" onclick="addItemRow()">+ 新增尺寸</button>
+                <div class="form-group">
+                    <label for="gap">鋸縫 / 間隔 (Kerf Gap)</label>
+                    <input type="number" id="gap" class="form-control" value="3" step="any" placeholder="鋸縫">
+                </div>
 
-            <button class="btn-primary" onclick="calculateLayout()">⚡ 開始計算排版</button>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="allowRotation" checked>
+                    <label for="allowRotation">允許旋轉 90° 排版</label>
+                </div>
+            </section>
+
+            <!-- 獨立區塊 2: 切片需求清單 -->
+            <section class="card-panel">
+                <div class="panel-header">
+                    <span class="step-badge">2</span>
+                    <h2>切片需求清單</h2>
+                </div>
+
+                <div class="item-list-header">
+                    <span>長</span>
+                    <span></span>
+                    <span>寬</span>
+                    <span>數量</span>
+                    <span></span>
+                </div>
+
+                <div id="itemList" class="item-list">
+                    <!-- 動態新增切片組數 -->
+                </div>
+
+                <button class="btn btn-secondary" onclick="addItemRow()">
+                    <span class="plus-icon">+</span> 新增尺寸
+                </button>
+
+                <button class="btn btn-primary btn-calc" onclick="calculateLayout()">
+                    ⚡ 開始計算排版
+                </button>
+            </section>
+
         </div>
 
-        <!-- 右側結果區 -->
-        <div class="panel">
-            <h2>3. 計算與視覺化結果</h2>
+        <!-- 右側結果區 (獨立區塊 3: 計算結果) -->
+        <div class="right-col">
+            <section class="card-panel result-panel">
+                <div class="panel-header">
+                    <span class="step-badge">3</span>
+                    <h2>計算結果</h2>
+                </div>
 
-            <div class="stats">
-                <div class="stat-card">
-                    <div class="val" id="statUsage">
-                        0%
+                <!-- 關鍵數據卡片 -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-lbl">
+                            平均面積利用率
+                        </div>
+                        <div class="stat-val" id="statUsage">
+                            0%
+                        </div>
                     </div>
-                    <div class="lbl">
-                        平均面積利用率
+                    <div class="stat-card">
+                        <div class="stat-lbl">
+                            總共需要底板數
+                        </div>
+                        <div class="stat-val" id="statSheets">
+                            0
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-lbl">
+                            切片總周長
+                        </div>
+                        <div class="stat-val" id="statPerimeter">
+                            0 mm
+                        </div>
                     </div>
                 </div>
-                <div class="stat-card">
-                    <div class="val" id="statSheets">
-                        0
-                    </div>
-                    <div class="lbl">
-                        總共需要底板數
+
+                <!-- 板材分頁切換區 -->
+                <div id="sheetTabs" class="sheet-tabs"></div>
+
+                <!-- 畫布視覺化預覽區 -->
+                <div id="canvasContainer" class="canvas-container">
+                    <div class="empty-state">
+                        <div class="empty-icon">
+                            📐
+                        </div>
+                        <p>
+                            請設定參數與需求，並點擊「開始計算排版」
+                        </p>
                     </div>
                 </div>
-                <div class="stat-card">
-                    <div class="val" id="statPerimeter">
-                        0 mm
-                    </div>
-                    <div class="lbl">
-                        切片總周長
-                    </div>
-                </div>
-            </div>
-
-            <!-- 板材分頁切換區 -->
-            <div id="sheetTabs" class="sheet-tabs"></div>
-
-            <div id="canvasContainer">
-                <p style="color: #909399; margin-top: 180px;">
-                    按下「開始計算排版」後將在此呈現排版圖
-                </p>
-            </div>
+            </section>
         </div>
+
     </div>
 
     <script src="script.js"></script>
