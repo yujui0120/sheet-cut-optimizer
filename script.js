@@ -264,7 +264,6 @@ function isOverlapping(placedItems, freeRect, newW, newH) {
 
 function splitFreeRectSaw(freeRects, freeRect, usedW, usedH, gap) {
     let newFreeRects = [];
-
     if (usedW + gap < freeRect.w) {
         newFreeRects.push({
             x: freeRect.x + usedW + gap,
@@ -433,6 +432,9 @@ function calculateLayout() {
             unplacedItems = remainingItemsForNextSheet;
         }
     } else {
+        // ----------------------------------------------------
+        // 裁板機模式：修復版 Guillotine Cut (含非重疊判斷與貫穿分割)
+        // ----------------------------------------------------
         while (unplacedItems.length > 0) {
             let freeRects = [{
                 x: 0, y: 0, w: boardW, h: boardH
@@ -447,6 +449,8 @@ function calculateLayout() {
 
                 for (let r = 0; r < freeRects.length; r++) {
                     let freeRect = freeRects[r];
+
+                    // 正向擺放檢查
                     if (
                         item.w <= freeRect.w &&
                         item.h <= freeRect.h &&
@@ -468,6 +472,8 @@ function calculateLayout() {
                         placed = true;
                         break;
                     }
+
+                    // 旋轉 90° 擺放檢查
                     if (allowRotation) {
                         if (
                             item.h <= freeRect.w &&
