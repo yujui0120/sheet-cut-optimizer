@@ -6,22 +6,77 @@ let parsedExcelData = [];
 let excelHeaders = [];
 
 window.onload = () => {
-    addItemRow('', '', '');
+    addItemRow('', '', '', false);
     updatePerimeterDisplay();
 };
 
-function addItemRow(w = '', h = '', count = '') {
+function closeNoticeModal() {
+    document.getElementById('noticeModal').style.display = 'none';
+}
+
+function validatePositiveInput(input, allowZero = false) {
+    const val = parseFloat(input.value);
+    if (isNaN(val) || (allowZero ? val < 0: val <= 0)) {
+        input.value = allowZero ? 0: 1;
+    }
+}
+
+function clearAllItems() {
+    if (confirm('確定要清除所有切片需求項目嗎？')) {
+        const container = document.getElementById('itemList');
+        container.innerHTML = '';
+        addItemRow('', '', '', false);
+    }
+}
+
+function addItemRow(w = '', h = '', count = '', focusFirst = false) {
     const container = document.getElementById('itemList');
     const div = document.createElement('div');
     div.className = 'item-row';
     div.innerHTML = `
-    <input type="number" class="form-control item-w" placeholder="長" value="${w}" step="any">
+    <input type="number" class="form-control item-w" placeholder="長" value="${w}" min="1" step="any" onchange="validatePositiveInput(this)" onkeydown="handleKeyNavigation(event, this)">
     <span>×</span>
-    <input type="number" class="form-control item-h" placeholder="寬" value="${h}" step="any">
-    <input type="number" class="form-control item-count" placeholder="數量" value="${count}" min="1">
+    <input type="number" class="form-control item-h" placeholder="寬" value="${h}" min="1" step="any" onchange="validatePositiveInput(this)" onkeydown="handleKeyNavigation(event, this)">
+    <input type="number" class="form-control item-count" placeholder="數量" value="${count}" min="1" step="1" onchange="validatePositiveInput(this)" onkeydown="handleKeyNavigation(event, this)">
     <button class="btn-delete" title="刪除此列" onclick="this.parentElement.remove()">✕</button>
     `;
     container.appendChild(div);
+
+    container.scrollTop = container.scrollHeight;
+
+    if (focusFirst) {
+        const inputW = div.querySelector('.item-w');
+        if (inputW) inputW.focus();
+    }
+}
+
+function handleKeyNavigation(event, currentInput) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        validatePositiveInput(currentInput);
+
+        const row = currentInput.closest('.item-row');
+        const rowInputs = Array.from(row.querySelectorAll('input[type="number"]'));
+        const currentIndex = rowInputs.indexOf(currentInput);
+
+        if (currentIndex < rowInputs.length - 1) {
+            rowInputs[currentIndex + 1].focus();
+            rowInputs[currentIndex + 1].select();
+        } else {
+            const allRows = Array.from(document.querySelectorAll('.item-row'));
+            const currentRowIndex = allRows.indexOf(row);
+
+            if (currentRowIndex === allRows.length - 1) {
+                addItemRow('', '', '', true);
+            } else {
+                const nextRowFirstInput = allRows[currentRowIndex + 1].querySelector('.item-w');
+                if (nextRowFirstInput) {
+                    nextRowFirstInput.focus();
+                    nextRowFirstInput.select();
+                }
+            }
+        }
+    }
 }
 
 function handleUnitChange(newUnit) {
@@ -187,24 +242,98 @@ function confirmExcelImport() {
     }
 }
 
-function calculateLayout() {
-    const boardW = parseFloat(document.getElementById('boardW').value);
-    const boardH = parseFloat(document.getElementById('boardH').value);
-    const gap = parseFloat(document.getElementById('gap').value) || 0;
-    const allowRotation = document.getElementById('allowRotation').checked;
+// ----------------------------------------------------
+// 裁板機專用重疊檢查與空間分割函式
+// ----------------------------------------------------
+function isOverlapping(placedItems, freeRect, newW, newH) {
+    const rectToCheck = {
+        x: freeRect.x,
+        y: freeRect.y,
+        w: newW,
+        h: newH
+    };
+    for (const placed of placedItems) {
+        if (
+            rectToCheck.x < placed.x + placed.w &&
+            rectToCheck.x + rectToCheck.w > placed.x &&
+            rectToCheck.y < placed.y + placed.h &&
+            rectToCheck.y + rectToCheck.h > placed.y
+        ) {
+            return true;
+        }
+    }
+    return false;
+}
 
-    if (!boardW || !boardH) {
-        alert('請輸入有效的底板尺寸');
+function splitFreeRectSaw(freeRects, freeRect, usedW, usedH, gap) {
+    let newFreeRects = [];
+
+    // 右側剩餘區塊
+    if (usedW + gap < freeRect.w) {
+        newFreeRects.push({
+            x: freeRect.x + usedW + gap,
+            y: freeRect.y,
+            w: freeRect.w - usedW - gap,
+            h: freeRect.h
+        });
+    }
+
+    // 下側剩餘區塊
+    if (usedH + gap < freeRect.h) {
+        newFreeRects.push({
+            x: freeRect.x,
+            y: freeRect.y + usedH + gap,
+            w: freeRect.w,
+            h: freeRect.h - usedH - gap
+        });
+    }
+
+    const idx = freeRects.indexOf(freeRect);
+    if (idx !== -1) {
+        freeRects.splice(idx, 1);
+    }
+    return freeRects.concat(newFreeRects);
+}
+
+function calculateLayout() {
+    const cutMethodSelect = document.getElementById('cutMethodSelect');
+    if (!cutMethodSelect.value) {
+        alert('請選擇裁切方式（CNC 裁切 或 裁板機裁切）！');
+        cutMethodSelect.focus();
         return;
     }
+
+    const cutMethod = cutMethodSelect.value;
+
+    const boardWInput = document.getElementById('boardW');
+    const boardHInput = document.getElementById('boardH');
+    validatePositiveInput(boardWInput);
+    validatePositiveInput(boardHInput);
+
+    const boardW = parseFloat(boardWInput.value);
+    const boardH = parseFloat(boardHInput.value);
+
+    const gapInput = document.getElementById('gap');
+    validatePositiveInput(gapInput, true);
+    const gap = parseFloat(gapInput.value) || 0;
+
+    const allowRotation = document.getElementById('allowRotationSelect').value === 'true';
 
     let unplacedItems = [];
     const rows = document.querySelectorAll('.item-row');
 
     rows.forEach((row, idx) => {
-        const w = parseFloat(row.querySelector('.item-w').value);
-        const h = parseFloat(row.querySelector('.item-h').value);
-        const count = parseInt(row.querySelector('.item-count').value) || 0;
+        const wInput = row.querySelector('.item-w');
+        const hInput = row.querySelector('.item-h');
+        const countInput = row.querySelector('.item-count');
+
+        validatePositiveInput(wInput);
+        validatePositiveInput(hInput);
+        validatePositiveInput(countInput);
+
+        const w = parseFloat(wInput.value);
+        const h = parseFloat(hInput.value);
+        const count = parseInt(countInput.value) || 0;
 
         if (w > 0 && h > 0 && count > 0) {
             const fitsNormal = w <= boardW && h <= boardH;
@@ -227,89 +356,174 @@ function calculateLayout() {
         return;
     }
 
+    // 排序：按面積大到小排序
     unplacedItems.sort((a, b) => b.area - a.area);
 
     allSheetsResults = [];
     let totalPlacedAreaAllSheets = 0;
     let calculatedTotalPerimeter = 0;
 
-    while (unplacedItems.length > 0) {
-        let freeRects = [{
-            x: 0, y: 0, w: boardW, h: boardH
-        }];
-        let placedInThisSheet = [];
-        let remainingItemsForNextSheet = [];
-        let sheetPlacedArea = 0;
+    if (cutMethod === 'cnc') {
+        // ----------------------------------------------------
+        // CNC 模式：完全恢復為未修改前最原始的二分排版邏輯
+        // ----------------------------------------------------
+        while (unplacedItems.length > 0) {
+            let freeRects = [{
+                x: 0, y: 0, w: boardW, h: boardH
+            }];
+            let placedInThisSheet = [];
+            let remainingItemsForNextSheet = [];
+            let sheetPlacedArea = 0;
 
-        for (let item of unplacedItems) {
-            let bestFit = null;
-            let bestRotated = false;
+            for (let item of unplacedItems) {
+                let bestFit = null;
+                let bestRotated = false;
 
-            for (let i = 0; i < freeRects.length; i++) {
-                let rect = freeRects[i];
+                for (let i = 0; i < freeRects.length; i++) {
+                    let rect = freeRects[i];
 
-                if (item.w <= rect.w && item.h <= rect.h) {
-                    bestFit = {
-                        rectIdx: i, x: rect.x, y: rect.y, w: item.w, h: item.h
-                    };
-                    bestRotated = false;
-                    break;
+                    if (item.w <= rect.w && item.h <= rect.h) {
+                        bestFit = {
+                            rectIdx: i, x: rect.x, y: rect.y, w: item.w, h: item.h
+                        };
+                        bestRotated = false;
+                        break;
+                    }
+                    if (allowRotation && item.h <= rect.w && item.w <= rect.h) {
+                        bestFit = {
+                            rectIdx: i, x: rect.x, y: rect.y, w: item.h, h: item.w
+                        };
+                        bestRotated = true;
+                        break;
+                    }
                 }
-                if (allowRotation && item.h <= rect.w && item.w <= rect.h) {
-                    bestFit = {
-                        rectIdx: i, x: rect.x, y: rect.y, w: item.h, h: item.w
-                    };
-                    bestRotated = true;
-                    break;
+
+                if (bestFit) {
+                    placedInThisSheet.push({
+                        x: bestFit.x, y: bestFit.y,
+                        w: bestFit.w, h: bestFit.h,
+                        origW: item.w, origH: item.h,
+                        rotated: bestRotated
+                    });
+                    sheetPlacedArea += item.area;
+                    calculatedTotalPerimeter += 2 * (item.w + item.h);
+
+                    let usedRect = freeRects.splice(bestFit.rectIdx, 1)[0];
+
+                    if (usedRect.w - bestFit.w - gap > 0) {
+                        freeRects.push({
+                            x: bestFit.x + bestFit.w + gap,
+                            y: bestFit.y,
+                            w: usedRect.w - bestFit.w - gap,
+                            h: bestFit.h
+                        });
+                    }
+                    if (usedRect.h - bestFit.h - gap > 0) {
+                        freeRects.push({
+                            x: bestFit.x,
+                            y: bestFit.y + bestFit.h + gap,
+                            w: usedRect.w,
+                            h: usedRect.h - bestFit.h - gap
+                        });
+                    }
+                } else {
+                    remainingItemsForNextSheet.push(item);
                 }
             }
 
-            if (bestFit) {
-                placedInThisSheet.push({
-                    x: bestFit.x, y: bestFit.y,
-                    w: bestFit.w, h: bestFit.h,
-                    origW: item.w, origH: item.h,
-                    rotated: bestRotated
-                });
-                sheetPlacedArea += item.area;
+            if (placedInThisSheet.length === 0) break;
 
-                calculatedTotalPerimeter += 2 * (item.w + item.h);
+            totalPlacedAreaAllSheets += sheetPlacedArea;
+            allSheetsResults.push({
+                placedItems: placedInThisSheet,
+                usage: ((sheetPlacedArea / (boardW * boardH)) * 100).toFixed(1)
+            });
 
-                let usedRect = freeRects.splice(bestFit.rectIdx, 1)[0];
+            unplacedItems = remainingItemsForNextSheet;
+        }
+    } else {
+        // ----------------------------------------------------
+        // 裁板機模式：修復版 Guillotine Cut (含非重疊判斷與貫穿分割)
+        // ----------------------------------------------------
+        while (unplacedItems.length > 0) {
+            let freeRects = [{
+                x: 0, y: 0, w: boardW, h: boardH
+            }];
+            let placedInThisSheet = [];
+            let sheetPlacedArea = 0;
 
-                if (usedRect.w - bestFit.w - gap > 0) {
-                    freeRects.push({
-                        x: bestFit.x + bestFit.w + gap,
-                        y: bestFit.y,
-                        w: usedRect.w - bestFit.w - gap,
-                        h: bestFit.h
-                    });
+            let i = 0;
+            while (i < unplacedItems.length) {
+                let item = unplacedItems[i];
+                let placed = false;
+
+                for (let r = 0; r < freeRects.length; r++) {
+                    let freeRect = freeRects[r];
+
+                    // 正向擺放檢查
+                    if (
+                        item.w <= freeRect.w &&
+                        item.h <= freeRect.h &&
+                        !isOverlapping(placedInThisSheet, freeRect, item.w, item.h)
+                    ) {
+                        placedInThisSheet.push({
+                            x: freeRect.x,
+                            y: freeRect.y,
+                            w: item.w,
+                            h: item.h,
+                            origW: item.w,
+                            origH: item.h,
+                            rotated: false
+                        });
+                        sheetPlacedArea += item.area;
+                        calculatedTotalPerimeter += 2 * (item.w + item.h);
+
+                        freeRects = splitFreeRectSaw(freeRects, freeRect, item.w, item.h, gap);
+                        placed = true;
+                        break;
+                    }
+
+                    // 旋轉 90° 擺放檢查
+                    if (allowRotation) {
+                        if (
+                            item.h <= freeRect.w &&
+                            item.w <= freeRect.h &&
+                            !isOverlapping(placedInThisSheet, freeRect, item.h, item.w)
+                        ) {
+                            placedInThisSheet.push({
+                                x: freeRect.x,
+                                y: freeRect.y,
+                                w: item.h,
+                                h: item.w,
+                                origW: item.w,
+                                origH: item.h,
+                                rotated: true
+                            });
+                            sheetPlacedArea += item.area;
+                            calculatedTotalPerimeter += 2 * (item.w + item.h);
+
+                            freeRects = splitFreeRectSaw(freeRects, freeRect, item.h, item.w, gap);
+                            placed = true;
+                            break;
+                        }
+                    }
                 }
-                if (usedRect.h - bestFit.h - gap > 0) {
-                    freeRects.push({
-                        x: bestFit.x,
-                        y: bestFit.y + bestFit.h + gap,
-                        w: usedRect.w,
-                        h: usedRect.h - bestFit.h - gap
-                    });
+
+                if (placed) {
+                    unplacedItems.splice(i, 1);
+                } else {
+                    i++;
                 }
-            } else {
-                remainingItemsForNextSheet.push(item);
             }
+
+            if (placedInThisSheet.length === 0) break;
+
+            totalPlacedAreaAllSheets += sheetPlacedArea;
+            allSheetsResults.push({
+                placedItems: placedInThisSheet,
+                usage: ((sheetPlacedArea / (boardW * boardH)) * 100).toFixed(1)
+            });
         }
-
-        if (placedInThisSheet.length === 0) {
-            console.warn('部分物件過大無法排入任何板材。');
-            break;
-        }
-
-        totalPlacedAreaAllSheets += sheetPlacedArea;
-        allSheetsResults.push({
-            placedItems: placedInThisSheet,
-            usage: ((sheetPlacedArea / (boardW * boardH)) * 100).toFixed(1)
-        });
-
-        unplacedItems = remainingItemsForNextSheet;
     }
 
     const totalBoardsArea = allSheetsResults.length * (boardW * boardH);
@@ -358,7 +572,6 @@ function renderCanvas(boardW, boardH, placedItems) {
     container.innerHTML = '';
 
     const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
 
     const maxCanvasWidth = Math.min(container.clientWidth - 32, 1000);
     const scale = maxCanvasWidth / boardW;
@@ -414,7 +627,6 @@ function exportToPDF() {
     const boardH = parseFloat(document.getElementById('boardH').value);
     const container = document.getElementById('canvasContainer');
 
-    const originalHTML = container.innerHTML;
     container.innerHTML = '';
 
     allSheetsResults.forEach((sheet, idx) => {
