@@ -1,645 +1,707 @@
-let currentUnit = 'mm';
-let allSheetsResults = [];
-let lastTotalPerimeter = 0;
-
-let parsedExcelData = [];
-let excelHeaders = [];
-
-window.onload = () => {
-    addItemRow('', '', '', false);
-    updatePerimeterDisplay();
-};
-
-function closeNoticeModal() {
-    document.getElementById('noticeModal').style.display = 'none';
+:root {
+    --primary: #1e40af;
+    --primary-hover: #1e3a8a;
+    --primary-light: #eff6ff;
+    --accent: #f59e0b;
+    --danger: #ef4444;
+    --notice-red: #dc2626;
+    --notice-red-bg: #fef2f2;
+    --bg: #f1f5f9;
+    --card-bg: #ffffff;
+    --border: #cbd5e1;
+    --border-focus: #2563eb;
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 14px -2px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 12px 28px -6px rgba(0, 0, 0, 0.12);
+    --radius: 12px;
 }
 
-function validatePositiveInput(input, allowZero = false) {
-    const val = parseFloat(input.value);
-    if (isNaN(val) || (allowZero ? val < 0: val <= 0)) {
-        input.value = allowZero ? 0: 1;
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont,"Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+body {
+    background-color: var(--bg);
+    color: var(--text-main);
+    padding: 24px 16px;
+    line-height: 1.5;
+}
+
+.header {
+    text-align: center;
+    max-width: 1200px;
+    margin: 0 auto 24px auto;
+    padding: 22px 24px;
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.header h1 {
+    font-size: 1.85rem;
+    font-weight: 800;
+    color: var(--primary);
+    letter-spacing: -0.5px;
+}
+
+.main-layout {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.top-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: stretch;
+}
+
+.bottom-row {
+    width: 100%;
+}
+
+@media (max-width: 900px) {
+    .top-row {
+        grid-template-columns: 1fr;
     }
 }
 
-function clearAllItems() {
-    if (confirm('確定要清除所有切片需求項目嗎？')) {
-        const container = document.getElementById('itemList');
-        container.innerHTML = '';
-        addItemRow('', '', '', false);
+.card-panel {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 22px;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.card-panel:hover {
+    box-shadow: var(--shadow-md);
+}
+
+.panel-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 18px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.header-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: nowrap;
+}
+
+.step-badge {
+    background: var(--primary-light);
+    color: var(--primary);
+    font-weight: 800;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+}
+
+.panel-header h2 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--text-main);
+    white-space: nowrap;
+}
+
+.form-group {
+    margin-bottom: 14px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+
+.form-control {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.92rem;
+    color: var(--text-main);
+    background: #fff;
+    transition: all 0.2s ease;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3.5px rgba(37, 99, 235, 0.15);
+}
+
+.inline-inputs {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.multiply-sign {
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.item-panel {
+    height: 100%;
+}
+
+.item-list-header {
+    display: grid;
+    grid-template-columns: 1fr 12px 1fr 1fr 36px;
+    gap: 6px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    padding: 0 4px;
+    text-align: center;
+}
+
+.item-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    height: 240px;
+    overflow-y: auto;
+    padding-right: 4px;
+    margin-bottom: 12px;
+}
+
+.panel-bottom-actions {
+    margin-top: auto;
+}
+
+.item-row {
+    display: grid;
+    grid-template-columns: 1fr 12px 1fr 1fr 36px;
+    gap: 6px;
+    align-items: center;
+}
+
+.item-row span {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.btn-delete {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    height: 38px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+}
+
+.btn-delete:hover {
+    background: #fef2f2;
+    color: var(--danger);
+    border-color: #fca5a5;
+}
+
+.btn {
+    width: auto;
+    white-space: nowrap;
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: none;
+    font-size: 0.92rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 0.82rem;
+    white-space: nowrap;
+}
+
+.btn-outline {
+    background: #fff;
+    border: 1px solid var(--border);
+    color: var(--text-main);
+    cursor: pointer;
+}
+
+.btn-outline:not(:disabled):hover {
+    background: var(--primary-light);
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.btn-danger-outline:not(:disabled):hover {
+    background: #fef2f2;
+    border-color: var(--danger);
+    color: var(--danger);
+}
+
+.btn-secondary {
+    width: 100%;
+    background: #f8fafc;
+    color: var(--text-main);
+    border: 1px dashed var(--border);
+}
+
+.btn-secondary:hover {
+    background: #e2e8f0;
+    border-color: #94a3b8;
+}
+
+.btn-primary {
+    width: 100%;
+    background: var(--primary);
+    color: #fff;
+    margin-top: 10px;
+}
+
+.btn-primary:hover {
+    background: var(--primary-hover);
+    transform: translateY(-1px);
+}
+
+.btn-calc {
+    font-size: 1rem;
+    padding: 12px;
+    box-shadow: 0 3px 10px rgba(30, 64, 175, 0.22);
+}
+
+.result-panel {
+    min-height: 480px;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+@media (max-width: 600px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
     }
 }
 
-function addItemRow(w = '', h = '', count = '', focusFirst = false) {
-    const container = document.getElementById('itemList');
-    const div = document.createElement('div');
-    div.className = 'item-row';
-    div.innerHTML = `
-    <input type="number" class="form-control item-w" placeholder="長" value="${w}" min="1" step="any" onchange="validatePositiveInput(this)" onkeydown="handleKeyNavigation(event, this)">
-    <span>×</span>
-    <input type="number" class="form-control item-h" placeholder="寬" value="${h}" min="1" step="any" onchange="validatePositiveInput(this)" onkeydown="handleKeyNavigation(event, this)">
-    <input type="number" class="form-control item-count" placeholder="數量" value="${count}" min="1" step="1" onchange="validatePositiveInput(this)" onkeydown="handleKeyNavigation(event, this)">
-    <button class="btn-delete" title="刪除此列" onclick="this.parentElement.remove()">✕</button>
-    `;
-    container.appendChild(div);
+.stat-card {
+    background: var(--primary-light);
+    border: 1px solid #dbeafe;
+    border-radius: var(--radius);
+    padding: 16px 12px;
+    text-align: center;
+}
 
-    container.scrollTop = container.scrollHeight;
+.stat-lbl {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
 
-    if (focusFirst) {
-        const inputW = div.querySelector('.item-w');
-        if (inputW) inputW.focus();
+.stat-val {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--primary);
+}
+
+.sheet-tabs {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+}
+
+.tab-btn {
+    background: #f1f5f9;
+    border: 1px solid var(--border);
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.tab-btn:hover {
+    background: #e2e8f0;
+}
+
+.tab-btn.active {
+    background: var(--primary);
+    color: #ffffff;
+    border-color: var(--primary);
+    box-shadow: 0 2px 6px rgba(30, 64, 175, 0.25);
+}
+
+.canvas-container {
+    width: 100%;
+    min-height: 380px;
+    background: #f8fafc;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    overflow-x: auto;
+}
+
+canvas {
+    background: #fff;
+    border-radius: 6px;
+    box-shadow: var(--shadow-sm);
+    max-width: 100%;
+}
+
+.empty-state {
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.empty-icon {
+    font-size: 2.8rem;
+    margin-bottom: 8px;
+    opacity: 0.6;
+}
+
+.modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 16px;
+}
+
+.modal-card {
+    background: #fff;
+    border-radius: var(--radius);
+    width: 100%;
+    max-width: 600px;
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+    animation: modalFadeIn0.2s ease-out;
+}
+
+@keyframes modalFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
     }
 }
 
-function handleKeyNavigation(event, currentInput) {
-    if (event.key === 'Enter') {
-        event.preventDefault();
-        validatePositiveInput(currentInput);
-
-        const row = currentInput.closest('.item-row');
-        const rowInputs = Array.from(row.querySelectorAll('input[type="number"]'));
-        const currentIndex = rowInputs.indexOf(currentInput);
-
-        if (currentIndex < rowInputs.length - 1) {
-            rowInputs[currentIndex + 1].focus();
-            rowInputs[currentIndex + 1].select();
-        } else {
-            const allRows = Array.from(document.querySelectorAll('.item-row'));
-            const currentRowIndex = allRows.indexOf(row);
-
-            if (currentRowIndex === allRows.length - 1) {
-                addItemRow('', '', '', true);
-            } else {
-                const nextRowFirstInput = allRows[currentRowIndex + 1].querySelector('.item-w');
-                if (nextRowFirstInput) {
-                    nextRowFirstInput.focus();
-                    nextRowFirstInput.select();
-                }
-            }
-        }
-    }
+.modal-header {
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
-function handleUnitChange(newUnit) {
-    if (newUnit === currentUnit) return;
-
-    const factor = newUnit === 'cm' ? 0.1: 10;
-
-    ['boardW', 'boardH', 'gap'].forEach(id => {
-        const input = document.getElementById(id);
-        if (input.value) input.value = (parseFloat(input.value) * factor).toFixed(2).replace(/\.00$/, '');
-    });
-
-    document.querySelectorAll('.item-w, .item-h').forEach(input => {
-        if (input.value) input.value = (parseFloat(input.value) * factor).toFixed(2).replace(/\.00$/, '');
-    });
-
-    if (lastTotalPerimeter > 0) {
-        lastTotalPerimeter = lastTotalPerimeter * factor;
-    }
-
-    currentUnit = newUnit;
-    updatePerimeterDisplay();
+.modal-header h3 {
+    font-size: 1.15rem;
+    color: var(--text-main);
+    font-weight: 700;
 }
 
-function updatePerimeterDisplay() {
-    const formattedPerimeter = lastTotalPerimeter.toFixed(1).replace(/\.0$/, '');
-    document.getElementById('statPerimeter').innerText = `${formattedPerimeter} ${currentUnit}`;
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.25rem;
+    color: var(--text-muted);
+    cursor: pointer;
 }
 
-function handleExcelUpload(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        try {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, {
-                type: 'array'
-            });
-
-            const firstSheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[firstSheetName];
-
-            const jsonData = XLSX.utils.sheet_to_json(worksheet, {
-                header: 1
-            });
-
-            if (jsonData.length < 2) {
-                alert('Excel 檔案內無足夠資料！');
-                return;
-            }
-
-            excelHeaders = jsonData[0].map(h => String(h).trim());
-            parsedExcelData = jsonData.slice(1);
-
-            openExcelModal();
-        } catch (err) {
-            alert('解析 Excel 檔案失敗，請確認檔案格式是否正確。');
-            console.error(err);
-        }
-    };
-    reader.readAsArrayBuffer(file);
-
-    event.target.value = '';
+.modal-body {
+    padding: 20px;
+    max-height: 70vh;
+    overflow-y: auto;
 }
 
-function openExcelModal() {
-    const modal = document.getElementById('excelModal');
-    const selectW = document.getElementById('colSelectW');
-    const selectH = document.getElementById('colSelectH');
-    const selectCount = document.getElementById('colSelectCount');
-
-    [selectW, selectH, selectCount].forEach(sel => sel.innerHTML = '');
-
-    excelHeaders.forEach((header, idx) => {
-        const optW = new Option(`${header} (欄 ${idx+1})`, idx);
-        const optH = new Option(`${header} (欄 ${idx+1})`, idx);
-        const optCount = new Option(`${header} (欄 ${idx+1})`, idx);
-
-        selectW.add(optW);
-        selectH.add(optH);
-        selectCount.add(optCount);
-    });
-
-    excelHeaders.forEach((h, idx) => {
-        const headerLower = h.toLowerCase();
-        if (headerLower.includes('長') || headerLower.includes('length') || headerLower.includes('w')) selectW.value = idx;
-        if (headerLower.includes('寬') || headerLower.includes('width') || headerLower.includes('h')) selectH.value = idx;
-        if (headerLower.includes('數') || headerLower.includes('量') || headerLower.includes('count') || headerLower.includes('qty')) selectCount.value = idx;
-    });
-
-    if (selectW.value === selectH.value && excelHeaders.length > 1) {
-        selectH.value = 1;
-    }
-
-    renderExcelPreviewTable();
-
-    modal.style.display = 'flex';
+.notice-section {
+    padding: 12px 14px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    transition: all 0.2s ease;
 }
 
-function closeExcelModal() {
-    document.getElementById('excelModal').style.display = 'none';
+.notice-section:not(.new) + .notice-section:not(.new) {
+    border-top: 1px dashed var(--border);
+    padding-top: 16px;
+    margin-top: 4px;
 }
 
-function renderExcelPreviewTable() {
-    const container = document.getElementById('excelPreviewTableContainer');
-    let html = '<table class="preview-table"><thead><tr>';
-
-    excelHeaders.forEach(h => {
-        html += `<th>${h}</th>`;
-    });
-    html += '</tr></thead><tbody>';
-
-    const previewRows = parsedExcelData.slice(0, 5);
-    previewRows.forEach(row => {
-        html += '<tr>';
-        excelHeaders.forEach((_, colIdx) => {
-            const val = row[colIdx] !== undefined ? row[colIdx]: '';
-            html += `<td>${val}</td>`;
-        });
-        html += '</tr>';
-    });
-
-    html += '</tbody></table>';
-    container.innerHTML = html;
+.notice-section:last-child {
+    margin-bottom: 0;
 }
 
-function confirmExcelImport() {
-    const colWIdx = parseInt(document.getElementById('colSelectW').value);
-    const colHIdx = parseInt(document.getElementById('colSelectH').value);
-    const colCountIdx = parseInt(document.getElementById('colSelectCount').value);
-    const importMode = document.querySelector('input[name="importMode"]:checked').value;
-
-    const itemListContainer = document.getElementById('itemList');
-
-    if (importMode === 'replace') {
-        itemListContainer.innerHTML = '';
-    }
-
-    let importedRowsCount = 0;
-
-    parsedExcelData.forEach(row => {
-        const rawW = parseFloat(row[colWIdx]);
-        const rawH = parseFloat(row[colHIdx]);
-        let rawCount = parseInt(row[colCountIdx]);
-
-        if (isNaN(rawCount) || rawCount < 1) {
-            rawCount = 1;
-        }
-
-        if (!isNaN(rawW) && !isNaN(rawH) && rawW > 0 && rawH > 0) {
-            addItemRow(rawW, rawH, rawCount);
-            importedRowsCount++;
-        }
-    });
-
-    if (importedRowsCount === 0) {
-        alert('未能匯入任何有效數字資料，請確認選取的長寬欄位是否包含數字。');
-    } else {
-        alert(`成功匯入 ${importedRowsCount} 筆切片尺寸數據！`);
-        closeExcelModal();
-    }
+.notice-section.new {
+    background-color: var(--notice-red-bg);
+    border: 1px solid #fca5a5;
+    margin-top: 10px;
+    margin-bottom: 14px;
 }
 
-function isOverlapping(placedItems, freeRect, newW, newH) {
-    const rectToCheck = {
-        x: freeRect.x,
-        y: freeRect.y,
-        w: newW,
-        h: newH
-    };
-    for (const placed of placedItems) {
-        if (
-            rectToCheck.x < placed.x + placed.w &&
-            rectToCheck.x + rectToCheck.w > placed.x &&
-            rectToCheck.y < placed.y + placed.h &&
-            rectToCheck.y + rectToCheck.h > placed.y
-        ) {
-            return true;
-        }
-    }
-    return false;
+.notice-section.new:first-child {
+    margin-top: 0;
 }
 
-function splitFreeRectSaw(freeRects, freeRect, usedW, usedH, gap) {
-    let newFreeRects = [];
-    if (usedW + gap < freeRect.w) {
-        newFreeRects.push({
-            x: freeRect.x + usedW + gap,
-            y: freeRect.y,
-            w: freeRect.w - usedW - gap,
-            h: freeRect.h
-        });
+.notice-topic-title {
+    font-size: 0.98rem;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.notice-section.new .notice-topic-title {
+    color: var(--notice-red);
+}
+
+.notice-section.new .notice-topic-title::after {
+    content: "NEW";
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--notice-red);
+    color: #ffffff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 2px 10px;
+    border-radius: 20px;
+    line-height: 1.3;
+    box-shadow: 0 1px 3px rgba(220, 38, 38, 0.25);
+    order: 2;
+}
+
+.notice-date {
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-left: auto;
+    order: 3;
+}
+
+.notice-section.new .notice-date {
+    color: #991b1b;
+}
+
+.modal-notice-list {
+    padding-left: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    color: var(--text-main);
+    font-size: 0.88rem;
+    line-height: 1.5;
+}
+
+.modal-notice-list li {
+    list-style-type: disc;
+}
+
+.modal-tip {
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+}
+
+.field-mapping-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.mapping-item label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+    display: block;
+}
+
+.import-mode-group {
+    margin-bottom: 16px;
+    background: var(--bg);
+    padding: 12px 14px;
+    border-radius: 8px;
+}
+
+.import-mode-group label {
+    font-size: 0.88rem;
+    font-weight: 600;
+    display: block;
+    margin-bottom: 6px;
+}
+
+.radio-inline {
+    display: flex;
+    gap: 16px;
+}
+
+.radio-inline label {
+    font-size: 0.85rem;
+    font-weight: normal;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.preview-box label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+    display: block;
+}
+
+.table-container {
+    max-height: 140px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.preview-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+}
+
+.preview-table th, .preview-table td {
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    text-align: left;
+}
+
+.preview-table th {
+    background: #f1f5f9;
+    font-weight: 600;
+}
+
+.modal-footer {
+    padding: 14px 20px;
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+@media print {
+    body {
+        background: #fff !important;
+        padding: 0 !important;
+        color: #000 !important;
     }
 
-    if (usedH + gap < freeRect.h) {
-        newFreeRects.push({
-            x: freeRect.x,
-            y: freeRect.y + usedH + gap,
-            w: freeRect.w,
-            h: freeRect.h - usedH - gap
-        });
+    .top-row,
+    .header-actions,
+    .sheet-tabs,
+    .modal-backdrop,
+    .btn {
+        display: none !important;
     }
 
-    const idx = freeRects.indexOf(freeRect);
-    if (idx !== -1) {
-        freeRects.splice(idx, 1);
-    }
-    return freeRects.concat(newFreeRects);
-}
-
-function calculateLayout() {
-    const cutMethodSelect = document.getElementById('cutMethodSelect');
-    if (!cutMethodSelect.value) {
-        alert('請選擇裁切方式（CNC 裁切 或 裁板機裁切）！');
-        cutMethodSelect.focus();
-        return;
+    .main-layout {
+        display: block !important;
+        max-width: 100% !important;
     }
 
-    const cutMethod = cutMethodSelect.value;
-
-    const boardWInput = document.getElementById('boardW');
-    const boardHInput = document.getElementById('boardH');
-    validatePositiveInput(boardWInput);
-    validatePositiveInput(boardHInput);
-
-    const boardW = parseFloat(boardWInput.value);
-    const boardH = parseFloat(boardHInput.value);
-
-    const gapInput = document.getElementById('gap');
-    validatePositiveInput(gapInput, true);
-    const gap = parseFloat(gapInput.value) || 0;
-
-    const allowRotation = document.getElementById('allowRotationSelect').value === 'true';
-
-    let unplacedItems = [];
-    const rows = document.querySelectorAll('.item-row');
-
-    rows.forEach((row, idx) => {
-        const wInput = row.querySelector('.item-w');
-        const hInput = row.querySelector('.item-h');
-        const countInput = row.querySelector('.item-count');
-
-        validatePositiveInput(wInput);
-        validatePositiveInput(hInput);
-        validatePositiveInput(countInput);
-
-        const w = parseFloat(wInput.value);
-        const h = parseFloat(hInput.value);
-        const count = parseInt(countInput.value) || 0;
-
-        if (w > 0 && h > 0 && count > 0) {
-            const fitsNormal = w <= boardW && h <= boardH;
-            const fitsRotated = allowRotation && (h <= boardW && w <= boardH);
-
-            if (!fitsNormal && !fitsRotated) {
-                alert(`警告：第 ${idx+1} 組尺寸 ${w} × ${h} 超出底板尺寸 (${boardW} × ${boardH})，無法放入！`);
-            }
-
-            for (let i = 0; i < count; i++) {
-                unplacedItems.push({
-                    id: `組${idx+1}-${i+1}`, w, h, area: w * h
-                });
-            }
-        }
-    });
-
-    if (unplacedItems.length === 0) {
-        alert('請輸入至少一組有效的切片長、寬與數量！');
-        return;
+    .card-panel {
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
     }
 
-    unplacedItems.sort((a, b) => b.area - a.area);
-
-    allSheetsResults = [];
-    let totalPlacedAreaAllSheets = 0;
-    let calculatedTotalPerimeter = 0;
-
-    if (cutMethod === 'cnc') {
-        while (unplacedItems.length > 0) {
-            let freeRects = [{
-                x: 0, y: 0, w: boardW, h: boardH
-            }];
-            let placedInThisSheet = [];
-            let remainingItemsForNextSheet = [];
-            let sheetPlacedArea = 0;
-
-            for (let item of unplacedItems) {
-                let bestFit = null;
-                let bestRotated = false;
-
-                for (let i = 0; i < freeRects.length; i++) {
-                    let rect = freeRects[i];
-
-                    if (item.w <= rect.w && item.h <= rect.h) {
-                        bestFit = {
-                            rectIdx: i, x: rect.x, y: rect.y, w: item.w, h: item.h
-                        };
-                        bestRotated = false;
-                        break;
-                    }
-                    if (allowRotation && item.h <= rect.w && item.w <= rect.h) {
-                        bestFit = {
-                            rectIdx: i, x: rect.x, y: rect.y, w: item.h, h: item.w
-                        };
-                        bestRotated = true;
-                        break;
-                    }
-                }
-
-                if (bestFit) {
-                    placedInThisSheet.push({
-                        x: bestFit.x, y: bestFit.y,
-                        w: bestFit.w, h: bestFit.h,
-                        origW: item.w, origH: item.h,
-                        rotated: bestRotated
-                    });
-                    sheetPlacedArea += item.area;
-                    calculatedTotalPerimeter += 2 * (item.w + item.h);
-
-                    let usedRect = freeRects.splice(bestFit.rectIdx, 1)[0];
-
-                    if (usedRect.w - bestFit.w - gap > 0) {
-                        freeRects.push({
-                            x: bestFit.x + bestFit.w + gap,
-                            y: bestFit.y,
-                            w: usedRect.w - bestFit.w - gap,
-                            h: bestFit.h
-                        });
-                    }
-                    if (usedRect.h - bestFit.h - gap > 0) {
-                        freeRects.push({
-                            x: bestFit.x,
-                            y: bestFit.y + bestFit.h + gap,
-                            w: usedRect.w,
-                            h: usedRect.h - bestFit.h - gap
-                        });
-                    }
-                } else {
-                    remainingItemsForNextSheet.push(item);
-                }
-            }
-
-            if (placedInThisSheet.length === 0) break;
-
-            totalPlacedAreaAllSheets += sheetPlacedArea;
-            allSheetsResults.push({
-                placedItems: placedInThisSheet,
-                usage: ((sheetPlacedArea / (boardW * boardH)) * 100).toFixed(1)
-            });
-
-            unplacedItems = remainingItemsForNextSheet;
-        }
-    } else {
-        // ----------------------------------------------------
-        // 裁板機模式：修復版 Guillotine Cut (含非重疊判斷與貫穿分割)
-        // ----------------------------------------------------
-        while (unplacedItems.length > 0) {
-            let freeRects = [{
-                x: 0, y: 0, w: boardW, h: boardH
-            }];
-            let placedInThisSheet = [];
-            let sheetPlacedArea = 0;
-
-            let i = 0;
-            while (i < unplacedItems.length) {
-                let item = unplacedItems[i];
-                let placed = false;
-
-                for (let r = 0; r < freeRects.length; r++) {
-                    let freeRect = freeRects[r];
-
-                    // 正向擺放檢查
-                    if (
-                        item.w <= freeRect.w &&
-                        item.h <= freeRect.h &&
-                        !isOverlapping(placedInThisSheet, freeRect, item.w, item.h)
-                    ) {
-                        placedInThisSheet.push({
-                            x: freeRect.x,
-                            y: freeRect.y,
-                            w: item.w,
-                            h: item.h,
-                            origW: item.w,
-                            origH: item.h,
-                            rotated: false
-                        });
-                        sheetPlacedArea += item.area;
-                        calculatedTotalPerimeter += 2 * (item.w + item.h);
-
-                        freeRects = splitFreeRectSaw(freeRects, freeRect, item.w, item.h, gap);
-                        placed = true;
-                        break;
-                    }
-
-                    // 旋轉 90° 擺放檢查
-                    if (allowRotation) {
-                        if (
-                            item.h <= freeRect.w &&
-                            item.w <= freeRect.h &&
-                            !isOverlapping(placedInThisSheet, freeRect, item.h, item.w)
-                        ) {
-                            placedInThisSheet.push({
-                                x: freeRect.x,
-                                y: freeRect.y,
-                                w: item.h,
-                                h: item.w,
-                                origW: item.w,
-                                origH: item.h,
-                                rotated: true
-                            });
-                            sheetPlacedArea += item.area;
-                            calculatedTotalPerimeter += 2 * (item.w + item.h);
-
-                            freeRects = splitFreeRectSaw(freeRects, freeRect, item.h, item.w, gap);
-                            placed = true;
-                            break;
-                        }
-                    }
-                }
-
-                if (placed) {
-                    unplacedItems.splice(i, 1);
-                } else {
-                    i++;
-                }
-            }
-
-            if (placedInThisSheet.length === 0) break;
-
-            totalPlacedAreaAllSheets += sheetPlacedArea;
-            allSheetsResults.push({
-                placedItems: placedInThisSheet,
-                usage: ((sheetPlacedArea / (boardW * boardH)) * 100).toFixed(1)
-            });
-        }
+    .stats-grid {
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 10px !important;
+        margin-bottom: 20px !important;
     }
 
-    const totalBoardsArea = allSheetsResults.length * (boardW * boardH);
-    const avgUsage = totalBoardsArea > 0 ? ((totalPlacedAreaAllSheets / totalBoardsArea) * 100).toFixed(1): 0;
-
-    lastTotalPerimeter = calculatedTotalPerimeter;
-
-    document.getElementById('statUsage').innerText = `${avgUsage}%`;
-    document.getElementById('statSheets').innerText = allSheetsResults.length;
-    updatePerimeterDisplay();
-
-    document.getElementById('exportPdfBtn').disabled = false;
-
-    renderTabs(boardW, boardH);
-    if (allSheetsResults.length > 0) {
-        switchSheet(0, boardW, boardH);
+    .stat-card {
+        border: 1px solid #ccc !important;
+        background: #f9f9f9 !important;
     }
-}
 
-function renderTabs(boardW, boardH) {
-    const tabsContainer = document.getElementById('sheetTabs');
-    tabsContainer.innerHTML = '';
-
-    allSheetsResults.forEach((sheet, idx) => {
-        const btn = document.createElement('button');
-        btn.className = `tab-btn ${idx === 0 ? 'active': ''}`;
-        btn.innerText = `底板 #${idx + 1} (${sheet.usage}%)`;
-        btn.onclick = () => {
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            switchSheet(idx, boardW, boardH);
-        };
-        tabsContainer.appendChild(btn);
-    });
-}
-
-function switchSheet(index, boardW, boardH) {
-    const sheet = allSheetsResults[index];
-    if (sheet) {
-        renderCanvas(boardW, boardH, sheet.placedItems);
+    .canvas-container {
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
     }
-}
 
-function renderCanvas(boardW, boardH, placedItems) {
-    const container = document.getElementById('canvasContainer');
-    container.innerHTML = '';
+    .pdf-sheet-wrapper {
+        page-break-inside: avoid;
+        margin-bottom: 30px;
+        text-align: center;
+    }
 
-    const canvas = document.createElement('canvas');
-
-    const maxCanvasWidth = Math.min(container.clientWidth - 32, 1000);
-    const scale = maxCanvasWidth / boardW;
-
-    canvas.width = boardW * scale;
-    canvas.height = boardH * scale;
-    container.appendChild(canvas);
-
-    drawSheetToCanvas(canvas, boardW, boardH, placedItems, scale);
-}
-
-function drawSheetToCanvas(canvas, boardW, boardH, placedItems, scale) {
-    const ctx = canvas.getContext('2d');
-
-    ctx.fillStyle = '#e8d8c3';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.strokeStyle = '#8d6e63';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(0, 0, canvas.width, canvas.height);
-
-    const colors = ['#1e40af', '#16a34a', '#d97706', '#dc2626', '#4f46e5', '#0891b2', '#9333ea', '#059669'];
-
-    placedItems.forEach((item, i) => {
-        const x = item.x * scale;
-        const y = item.y * scale;
-        const w = item.w * scale;
-        const h = item.h * scale;
-
-        ctx.fillStyle = colors[i % colors.length];
-        ctx.globalAlpha = 0.85;
-        ctx.fillRect(x, y, w, h);
-
-        ctx.globalAlpha = 1.0;
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect(x, y, w, h);
-
-        if (w > 28 && h > 16) {
-            ctx.fillStyle = '#ffffff';
-            ctx.font = `600 ${Math.max(10, Math.min(13, w / 5))}px sans-serif`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            const label = `${item.origW}×${item.origH}${item.rotated ? ' ↻': ''}`;
-            ctx.fillText(label, x + w / 2, y + h / 2);
-        }
-    });
-}
-
-function exportToPDF() {
-    if (allSheetsResults.length === 0) return;
-
-    const boardW = parseFloat(document.getElementById('boardW').value);
-    const boardH = parseFloat(document.getElementById('boardH').value);
-    const container = document.getElementById('canvasContainer');
-
-    container.innerHTML = '';
-
-    allSheetsResults.forEach((sheet, idx) => {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'pdf-sheet-wrapper';
-
-        const title = document.createElement('div');
-        title.className = 'pdf-sheet-title';
-        title.innerText = `底板 #${idx + 1} (利用率: ${sheet.usage}%)`;
-        wrapper.appendChild(title);
-
-        const canvas = document.createElement('canvas');
-        const scale = 800 / boardW;
-        canvas.width = boardW * scale;
-        canvas.height = boardH * scale;
-
-        drawSheetToCanvas(canvas, boardW, boardH, sheet.placedItems, scale);
-        wrapper.appendChild(canvas);
-
-        container.appendChild(wrapper);
-    });
-
-    window.print();
-
-    switchSheet(0, boardW, boardH);
+    .pdf-sheet-title {
+        font-size: 1.1rem;
+        font-weight: bold;
+        margin-bottom: 8px;
+        color: #333;
+    }
 }
