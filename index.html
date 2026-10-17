@@ -3,10 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>矩形木板最大利用率計算器</title>
+  <title>矩形木板最大利用率與裁切計算器</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
+<!-- 畫面上方標題區 -->
+<header class="header">
+  <h1>矩形木板最大利用率與裁切計算器</h1>
+  <p>板材最佳化切割與周長統計工具</p>
+</header>
 
 <div class="container">
   <!-- 左側設定區 -->
@@ -24,15 +30,15 @@
     <div class="form-group">
       <label>底板尺寸 (長 × 寬)</label>
       <div class="inline-group">
-        <input type="number" id="boardW" value="2440" step="any">
+        <input type="number" id="boardW" value="2440" step="any" placeholder="長">
         <span>×</span>
-        <input type="number" id="boardH" value="1220" step="any">
+        <input type="number" id="boardH" value="1220" step="any" placeholder="寬">
       </div>
     </div>
 
     <div class="form-group">
       <label for="gap">鋸縫 / 間隔 (Kerf Gap)</label>
-      <input type="number" id="gap" value="3" step="any">
+      <input type="number" id="gap" value="3" step="any" placeholder="鋸縫">
     </div>
 
     <div class="checkbox-group">
@@ -44,7 +50,7 @@
     <div id="itemList">
       <!-- 動態新增長寬組數 -->
     </div>
-    <button class="btn-secondary" onclick="addItemRow(600, 400, 4)">+ 新增尺寸</button>
+    <button class="btn-secondary" onclick="addItemRow()">+ 新增尺寸</button>
 
     <button class="btn-primary" onclick="calculateLayout()">⚡ 開始計算排版</button>
   </div>
@@ -56,17 +62,24 @@
     <div class="stats">
       <div class="stat-card">
         <div class="val" id="statUsage">0%</div>
-        <div class="lbl">面積利用率</div>
+        <div class="lbl">平均面積利用率</div>
       </div>
       <div class="stat-card">
         <div class="val" id="statSheets">0</div>
-        <div class="lbl">使用底板數</div>
+        <div class="lbl">總共需要底板數</div>
       </div>
       <div class="stat-card">
         <div class="val" id="statPlaced">0 / 0</div>
         <div class="lbl">成功排入數量</div>
       </div>
+      <div class="stat-card">
+        <div class="val" id="statPerimeter">0 mm</div>
+        <div class="lbl">切片總周長</div>
+      </div>
     </div>
+
+    <!-- 板材分頁切換區 -->
+    <div id="sheetTabs" class="sheet-tabs"></div>
 
     <div id="canvasContainer">
       <p style="color: #909399; margin-top: 180px;">按下「開始計算排版」後將在此呈現排版圖</p>
