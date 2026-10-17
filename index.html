@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>矩形木板最大利用率與裁切計算器</title>
     <link rel="stylesheet" href="style.css">
+    <!-- 引入 SheetJS 用於前端解析 Excel 檔案 -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -61,6 +63,12 @@
                 <div class="panel-header">
                     <span class="step-badge">2</span>
                     <h2>切片需求清單</h2>
+                    <div class="header-actions">
+                        <label for="excelInput" class="btn btn-sm btn-outline" title="由 Excel 匯入需求清單">
+                            📂 匯入 Excel
+                        </label>
+                        <input type="file" id="excelInput" accept=".xlsx, .xls, .csv" style="display: none;" onchange="handleExcelUpload(event)">
+                    </div>
                 </div>
 
                 <div class="item-list-header">
@@ -139,6 +147,53 @@
             </section>
         </div>
 
+    </div>
+
+    <!-- Excel 欄位對應與預覽 Modal 視窗 -->
+    <div id="excelModal" class="modal-backdrop" style="display: none;">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>Excel 匯入設定</h3>
+                <button class="modal-close" onclick="closeExcelModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-tip">
+                    請選擇 Excel 欄位對應（非數字內容將自動忽略）：
+                </p>
+
+                <div class="field-mapping-grid">
+                    <div class="mapping-item">
+                        <label for="colSelectW">指定「長」直欄：</label>
+                        <select id="colSelectW" class="form-control"></select>
+                    </div>
+                    <div class="mapping-item">
+                        <label for="colSelectH">指定「寬」直欄：</label>
+                        <select id="colSelectH" class="form-control"></select>
+                    </div>
+                    <div class="mapping-item">
+                        <label for="colSelectCount">指定「數量」直欄：</label>
+                        <select id="colSelectCount" class="form-control"></select>
+                    </div>
+                </div>
+
+                <div class="import-mode-group">
+                    <label>匯入方式：</label>
+                    <div class="radio-inline">
+                        <label><input type="radio" name="importMode" value="replace" checked> 取代現有數據</label>
+                        <label><input type="radio" name="importMode" value="append"> 新增至現有數據</label>
+                    </div>
+                </div>
+
+                <div class="preview-box">
+                    <label>前 5 列資料預覽：</label>
+                    <div id="excelPreviewTableContainer" class="table-container"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" style="width: auto;" onclick="closeExcelModal()">取消</button>
+                <button class="btn btn-primary" style="width: auto; margin-top: 0;" onclick="confirmExcelImport()">確認匯入</button>
+            </div>
+        </div>
     </div>
 
     <script src="script.js"></script>
