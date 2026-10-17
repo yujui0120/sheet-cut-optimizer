@@ -35,28 +35,43 @@
                 <div class="form-group">
                     <label>底板尺寸 (長 × 寬)</label>
                     <div class="inline-inputs">
-                        <input type="number" id="boardW" class="form-control" value="2440" step="any" placeholder="長">
+                        <input type="number" id="boardW" class="form-control" value="2440" min="1" step="any" placeholder="長" onchange="validatePositiveInput(this)">
                         <span class="multiply-sign">×</span>
-                        <input type="number" id="boardH" class="form-control" value="1220" step="any" placeholder="寬">
+                        <input type="number" id="boardH" class="form-control" value="1220" min="1" step="any" placeholder="寬" onchange="validatePositiveInput(this)">
                     </div>
                 </div>
 
                 <div class="form-group">
                     <label for="gap">鋸縫 / 間隔</label>
-                    <input type="number" id="gap" class="form-control" value="3" step="any" placeholder="鋸縫">
+                    <input type="number" id="gap" class="form-control" value="3" min="0" step="any" placeholder="鋸縫" onchange="validatePositiveInput(this, true)">
                 </div>
 
-                <div class="checkbox-group">
-                    <input type="checkbox" id="allowRotation" checked>
-                    <label for="allowRotation">允許旋轉</label>
+                <div class="form-group">
+                    <label for="allowRotationSelect">允許旋轉 90° 排版</label>
+                    <select id="allowRotationSelect" class="form-control">
+                        <option value="true" selected>是</option>
+                        <option value="false">否</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="cutMethodSelect">裁切方式</label>
+                    <select id="cutMethodSelect" class="form-control">
+                        <option value="" disabled selected>請選擇...</option>
+                        <option value="cnc">CNC 裁切</option>
+                        <option value="saw">裁板機裁切</option>
+                    </select>
                 </div>
             </section>
 
-            <section class="card-panel">
+            <section class="card-panel item-panel">
                 <div class="panel-header">
                     <span class="step-badge">2</span>
                     <h2>切片需求清單</h2>
                     <div class="header-actions">
+                        <button class="btn btn-sm btn-outline btn-danger-outline" onclick="clearAllItems()" title="清除所有切片需求">
+                            🗑️ 清除
+                        </button>
                         <label for="excelInput" class="btn btn-sm btn-outline" title="由 Excel 匯入需求清單">
                             📂 匯入 Excel
                         </label>
@@ -74,13 +89,15 @@
 
                 <div id="itemList" class="item-list"></div>
 
-                <button class="btn btn-secondary" onclick="addItemRow()">
-                    <span class="plus-icon">+</span> 新增尺寸
-                </button>
+                <div class="panel-bottom-actions">
+                    <button class="btn btn-secondary" onclick="addItemRow('', '', '', true)">
+                        <span class="plus-icon">+</span> 新增尺寸
+                    </button>
 
-                <button class="btn btn-primary btn-calc" onclick="calculateLayout()">
-                    計算
-                </button>
+                    <button class="btn btn-primary btn-calc" onclick="calculateLayout()">
+                        開始計算
+                    </button>
+                </div>
             </section>
 
         </div>
@@ -92,7 +109,7 @@
                     <h2>計算結果</h2>
                     <div class="header-actions">
                         <button id="exportPdfBtn" class="btn btn-sm btn-outline" onclick="exportToPDF()" disabled title="請先完成計算">
-                            📄 列印 / 匯出PDF
+                            📄 匯出 PDF / 列印
                         </button>
                     </div>
                 </div>
@@ -132,13 +149,54 @@
                             📐
                         </div>
                         <p>
-                            請設定參數與需求，點擊「計算」
+                            請設定參數與需求，點擊「開始計算」
                         </p>
                     </div>
                 </div>
             </section>
         </div>
 
+    </div>
+
+    <div id="noticeModal" class="modal-backdrop">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>📢 系統公告與注意事項</h3>
+            </div>
+            <div class="modal-body">
+
+                <div class="notice-section new">
+                    <h4 class="notice-topic-title">
+                        【公告】全新系統上線
+                        <span class="notice-date">2026-10-17</span>
+                    </h4>
+                    <p>
+                        全新系統上線！以下為本次新增的功能
+                    </p>
+                    <ul class="modal-notice-list">
+                        <li>底板尺寸自訂</li>
+                        <li>裁切方式可選</li>
+                        <li>Excel匯入</li>
+                        <li>PDF匯出 / 列印</li>
+                        <li>提升系統穩定度</li>
+                    </ul>
+                </div>
+                <!--
+                                <div class="notice-section">
+                                    <h4 class="notice-topic-title">
+                                        【操作指南】Excel操作指南
+                                        <span class="notice-date">2026-10-17</span>
+                                    </h4>
+                                    <ul class="modal-notice-list">
+                                        <li></li>
+                                    </ul>
+                                </div>
+                -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" style="width: auto; margin-top: 0;" onclick="closeNoticeModal()">我知道了</button>
+            </div>
+        </div>
     </div>
 
     <div id="excelModal" class="modal-backdrop" style="display: none;">
