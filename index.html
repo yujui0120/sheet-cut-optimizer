@@ -4,23 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>木板最大利用與裁切計算器</title>
+    <link rel="icon" href="tongsun.png" type="image/png">
     <link rel="stylesheet" href="style.css">
-    <!-- 引入 SheetJS 用於前端解析 Excel 檔案 -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 
-    <!-- 畫面上方標題區 -->
     <header class="header">
         <h1>木板最大利用與裁切計算器</h1>
     </header>
 
     <div class="main-layout">
 
-        <!-- 左側控制區 (包含 1. 參數設定 與 2. 切片需求清單) -->
-        <div class="left-col">
+        <div class="top-row">
 
-            <!-- 獨立區塊 1: 參數設定 -->
             <section class="card-panel">
                 <div class="panel-header">
                     <span class="step-badge">1</span>
@@ -55,7 +52,6 @@
                 </div>
             </section>
 
-            <!-- 獨立區塊 2: 切片需求清單 -->
             <section class="card-panel">
                 <div class="panel-header">
                     <span class="step-badge">2</span>
@@ -76,9 +72,7 @@
                     <span></span>
                 </div>
 
-                <div id="itemList" class="item-list">
-                    <!-- 動態新增切片組數 -->
-                </div>
+                <div id="itemList" class="item-list"></div>
 
                 <button class="btn btn-secondary" onclick="addItemRow()">
                     <span class="plus-icon">+</span> 新增尺寸
@@ -91,15 +85,18 @@
 
         </div>
 
-        <!-- 右側結果區 (獨立區塊 3: 計算結果) -->
-        <div class="right-col">
+        <div class="bottom-row">
             <section class="card-panel result-panel">
                 <div class="panel-header">
                     <span class="step-badge">3</span>
                     <h2>計算結果</h2>
+                    <div class="header-actions">
+                        <button id="exportPdfBtn" class="btn btn-sm btn-outline" onclick="exportToPDF()" disabled title="請先完成計算">
+                            📄 匯出 PDF 報告
+                        </button>
+                    </div>
                 </div>
 
-                <!-- 關鍵數據卡片 -->
                 <div class="stats-grid">
                     <div class="stat-card">
                         <div class="stat-lbl">
@@ -127,17 +124,15 @@
                     </div>
                 </div>
 
-                <!-- 板材分頁切換區 -->
                 <div id="sheetTabs" class="sheet-tabs"></div>
 
-                <!-- 畫布視覺化預覽區 -->
                 <div id="canvasContainer" class="canvas-container">
                     <div class="empty-state">
                         <div class="empty-icon">
                             📐
                         </div>
                         <p>
-                            請設定參數與需求，並點擊「開始計算排版」
+                            請設定參數與需求，點擊「開始計算排版」
                         </p>
                     </div>
                 </div>
@@ -146,7 +141,6 @@
 
     </div>
 
-    <!-- Excel 欄位對應與預覽 Modal 視窗 -->
     <div id="excelModal" class="modal-backdrop" style="display: none;">
         <div class="modal-card">
             <div class="modal-header">
