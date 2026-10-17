@@ -47,7 +47,7 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="allowRotationSelect">允許旋轉 90° 排版</label>
+                    <label for="allowRotationSelect">允許旋轉</label>
                     <select id="allowRotationSelect" class="form-control">
                         <option value="true" selected>是</option>
                         <option value="false">否</option>
@@ -57,7 +57,7 @@
                 <div class="form-group">
                     <label for="cutMethodSelect">裁切方式</label>
                     <select id="cutMethodSelect" class="form-control">
-                        <option value="" disabled selected>請選擇...</option>
+                        <option value="" disabled selected>請選擇</option>
                         <option value="cnc">CNC 裁切</option>
                         <option value="saw">裁板機裁切</option>
                     </select>
@@ -161,7 +161,7 @@
     <div id="noticeModal" class="modal-backdrop">
         <div class="modal-card">
             <div class="modal-header">
-                <h3>📢 系統公告與注意事項</h3>
+                <h3>📢 系統公告</h3>
             </div>
             <div class="modal-body">
 
@@ -181,17 +181,19 @@
                         <li>提升系統穩定度</li>
                     </ul>
                 </div>
-                <!--
-                                <div class="notice-section">
-                                    <h4 class="notice-topic-title">
-                                        【操作指南】Excel操作指南
-                                        <span class="notice-date">2026-10-17</span>
-                                    </h4>
-                                    <ul class="modal-notice-list">
-                                        <li></li>
-                                    </ul>
-                                </div>
-                -->
+
+                <div class="notice-section">
+                    <h4 class="notice-topic-title">
+                        【系統】Excel匯入功能說明
+                        <span class="notice-date">2026-10-18</span>
+                    </h4>
+                    <ul class="modal-notice-list">
+                        <li>僅支援.xlsx、.xls、.csv三種檔案類型</li>
+                        <li>匯入後有預覽畫面可以選擇長、寬、數量欄位</li>
+                        <li>非數字內容將自動忽略</li>
+                    </ul>
+                </div>
+
             </div>
             <div class="modal-footer">
                 <button class="btn btn-primary" style="width: auto; margin-top: 0;" onclick="closeNoticeModal()">我知道了</button>
