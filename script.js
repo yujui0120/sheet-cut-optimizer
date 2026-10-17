@@ -2,6 +2,10 @@ let currentUnit = 'mm';
 let allSheetsResults = []; // 儲存所有木板的計算結果
 let lastTotalPerimeter = 0; // 儲存當前計算出的總周長
 
+// 暫存 parsed Excel 資料
+let parsedExcelData = [];
+let excelHeaders = [];
+
 // 頁面載入時初始化預設列
 window.onload = () => {
     addItemRow('', '', '');
@@ -53,6 +57,159 @@ function handleUnitChange(newUnit) {
 function updatePerimeterDisplay() {
     const formattedPerimeter = lastTotalPerimeter.toFixed(1).replace(/\.0$/, '');
     document.getElementById('statPerimeter').innerText = `${formattedPerimeter} ${currentUnit}`;
+}
+
+// 處理 Excel 檔案上傳與讀取
+function handleExcelUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, {
+                type: 'array'
+            });
+
+            // 讀取第一個工作表 (Sheet)
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+
+            // 轉成 JSON Array (含 Header)
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, {
+                header: 1
+            });
+
+            if (jsonData.length < 2) {
+                alert('Excel 檔案內無足夠資料！');
+                return;
+            }
+
+            // 第一列為 Header
+            excelHeaders = jsonData[0].map(h => String(h).trim());
+            parsedExcelData = jsonData.slice(1);
+
+            openExcelModal();
+        } catch (err) {
+            alert('解析 Excel 檔案失敗，請確認檔案格式是否正確。');
+            console.error(err);
+        }
+    };
+    reader.readAsArrayBuffer(file);
+
+    // 清空 input 讓重複選擇同檔案時仍能觸發 change
+    event.target.value = '';
+}
+
+// 開啟 Excel 設定 Modal
+function openExcelModal() {
+    const modal = document.getElementById('excelModal');
+    const selectW = document.getElementById('colSelectW');
+    const selectH = document.getElementById('colSelectH');
+    const selectCount = document.getElementById('colSelectCount');
+
+    // 清空下拉選單
+    [selectW, selectH, selectCount].forEach(sel => sel.innerHTML = '');
+
+    // 填入直欄選單，並進行智慧預設比對
+    excelHeaders.forEach((header, idx) => {
+        const optW = new Option(`${header} (欄 ${idx+1})`, idx);
+        const optH = new Option(`${header} (欄 ${idx+1})`, idx);
+        const optCount = new Option(`${header} (欄 ${idx+1})`, idx);
+
+        selectW.add(optW);
+        selectH.add(optH);
+        selectCount.add(optCount);
+    });
+
+    // 自動智慧配對欄位名稱 (如含有 '長', '寬', '數' 等字眼)
+    excelHeaders.forEach((h, idx) => {
+        const headerLower = h.toLowerCase();
+        if (headerLower.includes('長') || headerLower.includes('length') || headerLower.includes('w')) selectW.value = idx;
+        if (headerLower.includes('寬') || headerLower.includes('width') || headerLower.includes('h')) selectH.value = idx;
+        if (headerLower.includes('數') || headerLower.includes('量') || headerLower.includes('count') || headerLower.includes('qty')) selectCount.value = idx;
+    });
+
+    // 如果寬未選到，預設選第二欄
+    if (selectW.value === selectH.value && excelHeaders.length > 1) {
+        selectH.value = 1;
+    }
+
+    // 繪製預覽表格 (前 5 列)
+    renderExcelPreviewTable();
+
+    modal.style.display = 'flex';
+}
+
+// 關閉 Modal
+function closeExcelModal() {
+    document.getElementById('excelModal').style.display = 'none';
+}
+
+// 繪製預覽表格
+function renderExcelPreviewTable() {
+    const container = document.getElementById('excelPreviewTableContainer');
+    let html = '<table class="preview-table"><thead><tr>';
+
+    excelHeaders.forEach(h => {
+        html += `<th>${h}</th>`;
+    });
+    html += '</tr></thead><tbody>';
+
+    const previewRows = parsedExcelData.slice(0, 5);
+    previewRows.forEach(row => {
+        html += '<tr>';
+        excelHeaders.forEach((_, colIdx) => {
+            const val = row[colIdx] !== undefined ? row[colIdx]: '';
+            html += `<td>${val}</td>`;
+        });
+        html += '</tr>';
+    });
+
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
+
+// 確認匯入 Excel 資料
+function confirmExcelImport() {
+    const colWIdx = parseInt(document.getElementById('colSelectW').value);
+    const colHIdx = parseInt(document.getElementById('colSelectH').value);
+    const colCountIdx = parseInt(document.getElementById('colSelectCount').value);
+    const importMode = document.querySelector('input[name="importMode"]:checked').value;
+
+    const itemListContainer = document.getElementById('itemList');
+
+    // 如果是取代模式，清空目前列表
+    if (importMode === 'replace') {
+        itemListContainer.innerHTML = '';
+    }
+
+    let importedRowsCount = 0;
+
+    parsedExcelData.forEach(row => {
+        const rawW = parseFloat(row[colWIdx]);
+        const rawH = parseFloat(row[colHIdx]);
+        let rawCount = parseInt(row[colCountIdx]);
+
+        // 若數量非數字或小於 1，預設為 1
+        if (isNaN(rawCount) || rawCount < 1) {
+            rawCount = 1;
+        }
+
+        // 自動過濾非數字欄位 (過濾無效長寬)
+        if (!isNaN(rawW) && !isNaN(rawH) && rawW > 0 && rawH > 0) {
+            addItemRow(rawW, rawH, rawCount);
+            importedRowsCount++;
+        }
+    });
+
+    if (importedRowsCount === 0) {
+        alert('未能匯入任何有效數字資料，請確認選取的長寬欄位是否包含數字。');
+    } else {
+        alert(`成功匯入 ${importedRowsCount} 筆切片尺寸數據！`);
+        closeExcelModal();
+    }
 }
 
 // 多板裝箱演算法 (Bin Packing Multiple Sheets)
