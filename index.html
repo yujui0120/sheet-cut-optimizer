@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>矩形木板最大利用率計算器</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="container">
+  <!-- 左側設定區 -->
+  <div class="panel">
+    <h2>1. 底板與參數設定</h2>
+    
+    <div class="form-group">
+      <label for="unitSelect">單位選擇</label>
+      <select id="unitSelect" onchange="handleUnitChange(this.value)">
+        <option value="mm" selected>mm (公厘)</option>
+        <option value="cm">cm (公分)</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>底板尺寸 (長 × 寬)</label>
+      <div class="inline-group">
+        <input type="number" id="boardW" value="2440" step="any">
+        <span>×</span>
+        <input type="number" id="boardH" value="1220" step="any">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="gap">鋸縫 / 間隔 (Kerf Gap)</label>
+      <input type="number" id="gap" value="3" step="any">
+    </div>
+
+    <div class="checkbox-group">
+      <input type="checkbox" id="allowRotation" checked>
+      <label for="allowRotation">允許旋轉 90° 排版</label>
+    </div>
+
+    <h2 style="margin-top: 20px;">2. 切片需求清單</h2>
+    <div id="itemList">
+      <!-- 動態新增長寬組數 -->
+    </div>
+    <button class="btn-secondary" onclick="addItemRow(600, 400, 4)">+ 新增尺寸</button>
+
+    <button class="btn-primary" onclick="calculateLayout()">⚡ 開始計算排版</button>
+  </div>
+
+  <!-- 右側結果區 -->
+  <div class="panel">
+    <h2>3. 計算與視覺化結果</h2>
+    
+    <div class="stats">
+      <div class="stat-card">
+        <div class="val" id="statUsage">0%</div>
+        <div class="lbl">面積利用率</div>
+      </div>
+      <div class="stat-card">
+        <div class="val" id="statSheets">0</div>
+        <div class="lbl">使用底板數</div>
+      </div>
+      <div class="stat-card">
+        <div class="val" id="statPlaced">0 / 0</div>
+        <div class="lbl">成功排入數量</div>
+      </div>
+    </div>
+
+    <div id="canvasContainer">
+      <p style="color: #909399; margin-top: 180px;">按下「開始計算排版」後將在此呈現排版圖</p>
+    </div>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
