@@ -1,214 +1,288 @@
-:root {
-  --primary: #2b5797;
-  --bg: #f5f7fa;
-  --card-bg: #ffffff;
-  --border: #dcdfe6;
-  --text: #303133;
+let currentUnit = 'mm';
+let allSheetsResults = []; // 儲存所有木板的計算結果
+let lastTotalPerimeter = 0; // 儲存當前計算出的總周長
+
+// 頁面載入時預設帶入一列空白輸入框
+window.onload = () => {
+  addItemRow('', '', '');
+  updatePerimeterDisplay();
+};
+
+// 動態新增切片項目（預設無值，為空字串）
+function addItemRow(w = '', h = '', count = '') {
+  const container = document.getElementById('itemList');
+  const div = document.createElement('div');
+  div.className = 'item-row';
+  div.innerHTML = `
+    <input type="number" class="item-w" placeholder="長" value="${w}" step="any">
+    <span>×</span>
+    <input type="number" class="item-h" placeholder="寬" value="${h}" step="any">
+    <input type="number" class="item-count" placeholder="數量" value="${count}" min="1">
+    <button class="btn-danger" onclick="this.parentElement.remove()">✕</button>
+  `;
+  container.appendChild(div);
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+// 單位自動轉換（mm <-> cm）
+function handleUnitChange(newUnit) {
+  if (newUnit === currentUnit) return;
+  
+  const factor = newUnit === 'cm' ? 0.1 : 10;
+  
+  // 轉換底板與鋸縫
+  ['boardW', 'boardH', 'gap'].forEach(id => {
+    const input = document.getElementById(id);
+    if (input.value) input.value = (parseFloat(input.value) * factor).toFixed(2).replace(/\.00$/, '');
+  });
+
+  // 轉換切片尺寸
+  document.querySelectorAll('.item-w, .item-h').forEach(input => {
+    if (input.value) input.value = (parseFloat(input.value) * factor).toFixed(2).replace(/\.00$/, '');
+  });
+
+  // 轉換當前顯示的周長數值
+  if (lastTotalPerimeter > 0) {
+    lastTotalPerimeter = lastTotalPerimeter * factor;
+  }
+
+  currentUnit = newUnit;
+  updatePerimeterDisplay();
 }
 
-body {
-  background-color: var(--bg);
-  color: var(--text);
-  padding: 20px;
+// 更新總周長顯示
+function updatePerimeterDisplay() {
+  const formattedPerimeter = lastTotalPerimeter.toFixed(1).replace(/\.0$/, '');
+  document.getElementById('statPerimeter').innerText = `${formattedPerimeter} ${currentUnit}`;
 }
 
-/* 頁首標題樣式 */
-.header {
-  text-align: center;
-  margin-bottom: 25px;
-  background: var(--card-bg);
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
-  max-width: 1100px;
-  margin-left: auto;
-  margin-right: auto;
+// 多板裝箱演算法 (Bin Packing Multiple Sheets)
+function calculateLayout() {
+  const boardW = parseFloat(document.getElementById('boardW').value);
+  const boardH = parseFloat(document.getElementById('boardH').value);
+  const gap = parseFloat(document.getElementById('gap').value) || 0;
+  const allowRotation = document.getElementById('allowRotation').checked;
+
+  if (!boardW || !boardH) {
+    alert('請輸入有效的底板尺寸');
+    return;
+  }
+
+  // 收集所有需要切割的獨立區塊
+  let unplacedItems = [];
+  const rows = document.querySelectorAll('.item-row');
+  let totalRequestedCount = 0;
+
+  rows.forEach((row, idx) => {
+    const w = parseFloat(row.querySelector('.item-w').value);
+    const h = parseFloat(row.querySelector('.item-h').value);
+    const count = parseInt(row.querySelector('.item-count').value) || 0;
+    
+    if (w > 0 && h > 0 && count > 0) {
+      const fitsNormal = w <= boardW && h <= boardH;
+      const fitsRotated = allowRotation && (h <= boardW && w <= boardH);
+      
+      if (!fitsNormal && !fitsRotated) {
+        alert(`警告：第 ${idx+1} 組尺寸 ${w} × ${h} 超出底板尺寸 (${boardW} × ${boardH})，無法放入！`);
+      }
+
+      for (let i = 0; i < count; i++) {
+        unplacedItems.push({ id: `組${idx+1}-${i+1}`, w, h, area: w * h });
+        totalRequestedCount++;
+      }
+    }
+  });
+
+  if (unplacedItems.length === 0) {
+    alert('請輸入至少一組有效的切片長、寬與數量！');
+    return;
+  }
+
+  // 優先放入較大面積的木板 (Greedy Order)
+  unplacedItems.sort((a, b) => b.area - a.area);
+
+  allSheetsResults = [];
+  let totalPlacedCount = 0;
+  let totalPlacedAreaAllSheets = 0;
+  let calculatedTotalPerimeter = 0; // 累加所有排入木板的周長
+
+  // 迴圈：只要還有未放入的木板，就開啟新的一張底板
+  while (unplacedItems.length > 0) {
+    let freeRects = [{ x: 0, y: 0, w: boardW, h: boardH }];
+    let placedInThisSheet = [];
+    let remainingItemsForNextSheet = [];
+    let sheetPlacedArea = 0;
+
+    for (let item of unplacedItems) {
+      let bestFit = null;
+      let bestRotated = false;
+
+      // 尋找當前底板中的最佳剩餘空間
+      for (let i = 0; i < freeRects.length; i++) {
+        let rect = freeRects[i];
+
+        // 1. 不旋轉測試
+        if (item.w <= rect.w && item.h <= rect.h) {
+          bestFit = { rectIdx: i, x: rect.x, y: rect.y, w: item.w, h: item.h };
+          bestRotated = false;
+          break;
+        }
+        // 2. 允許旋轉 90 度測試
+        if (allowRotation && item.h <= rect.w && item.w <= rect.h) {
+          bestFit = { rectIdx: i, x: rect.x, y: rect.y, w: item.h, h: item.w };
+          bestRotated = true;
+          break;
+        }
+      }
+
+      if (bestFit) {
+        // 成功放入當前底板
+        placedInThisSheet.push({
+          x: bestFit.x, y: bestFit.y,
+          w: bestFit.w, h: bestFit.h,
+          origW: item.w, origH: item.h,
+          rotated: bestRotated
+        });
+        sheetPlacedArea += item.area;
+        totalPlacedCount++;
+
+        // 計算並累加單塊木板周長: 2 * (長 + 寬)
+        calculatedTotalPerimeter += 2 * (item.w + item.h);
+
+        // 切割剩餘可利用空間
+        let usedRect = freeRects.splice(bestFit.rectIdx, 1)[0];
+        
+        // 切割右側空間
+        if (usedRect.w - bestFit.w - gap > 0) {
+          freeRects.push({
+            x: bestFit.x + bestFit.w + gap,
+            y: bestFit.y,
+            w: usedRect.w - bestFit.w - gap,
+            h: bestFit.h
+          });
+        }
+        // 切割下側空間
+        if (usedRect.h - bestFit.h - gap > 0) {
+          freeRects.push({
+            x: bestFit.x,
+            y: bestFit.y + bestFit.h + gap,
+            w: usedRect.w,
+            h: usedRect.h - bestFit.h - gap
+          });
+        }
+      } else {
+        // 當前底板塞不下，留給下一張底板
+        remainingItemsForNextSheet.push(item);
+      }
+    }
+
+    // 防呆迴圈卡死：如果一張板子連一個都放不進去，說明該物件超出尺寸限制，終止迴圈
+    if (placedInThisSheet.length === 0) {
+      console.warn('部分物件過大無法排入任何板材。');
+      break;
+    }
+
+    totalPlacedAreaAllSheets += sheetPlacedArea;
+    allSheetsResults.push({
+      placedItems: placedInThisSheet,
+      usage: ((sheetPlacedArea / (boardW * boardH)) * 100).toFixed(1)
+    });
+
+    unplacedItems = remainingItemsForNextSheet;
+  }
+
+  // 計算全域統計資訊
+  const totalBoardsArea = allSheetsResults.length * (boardW * boardH);
+  const avgUsage = totalBoardsArea > 0 ? ((totalPlacedAreaAllSheets / totalBoardsArea) * 100).toFixed(1) : 0;
+
+  lastTotalPerimeter = calculatedTotalPerimeter;
+
+  document.getElementById('statUsage').innerText = `${avgUsage}%`;
+  document.getElementById('statSheets').innerText = allSheetsResults.length;
+  document.getElementById('statPlaced').innerText = `${totalPlacedCount} / ${totalRequestedCount}`;
+  updatePerimeterDisplay();
+
+  // 渲染頁籤與第一張底板的 Canvas
+  renderTabs(boardW, boardH);
+  if (allSheetsResults.length > 0) {
+    switchSheet(0, boardW, boardH);
+  }
 }
 
-.header h1 {
-  font-size: 1.8rem;
-  color: var(--primary);
-  margin-bottom: 5px;
+// 渲染底板分頁按鈕 (Tabs)
+function renderTabs(boardW, boardH) {
+  const tabsContainer = document.getElementById('sheetTabs');
+  tabsContainer.innerHTML = '';
+
+  allSheetsResults.forEach((sheet, idx) => {
+    const btn = document.createElement('button');
+    btn.className = `tab-btn ${idx === 0 ? 'active' : ''}`;
+    btn.innerText = `底板 #${idx + 1} (${sheet.usage}%)`;
+    btn.onclick = () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      switchSheet(idx, boardW, boardH);
+    };
+    tabsContainer.appendChild(btn);
+  });
 }
 
-.header p {
-  font-size: 0.95rem;
-  color: #606266;
+// 切換顯示特定一張底板
+function switchSheet(index, boardW, boardH) {
+  const sheet = allSheetsResults[index];
+  if (sheet) {
+    renderCanvas(boardW, boardH, sheet.placedItems);
+  }
 }
 
-.container {
-  max-width: 1100px;
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: 360px 1fr;
-  gap: 20px;
-}
+// 畫出 Canvas 木板佈局
+function renderCanvas(boardW, boardH, placedItems) {
+  const container = document.getElementById('canvasContainer');
+  container.innerHTML = ''; 
 
-.panel {
-  background: var(--card-bg);
-  border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
-}
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
 
-h2 {
-  font-size: 1.2rem;
-  margin-bottom: 15px;
-  color: var(--primary);
-  border-bottom: 2px solid var(--primary);
-  padding-bottom: 5px;
-}
+  // 依容器寬度動態縮放 Canvas
+  const maxCanvasWidth = Math.min(container.clientWidth - 30, 700);
+  const scale = maxCanvasWidth / boardW;
 
-.form-group {
-  margin-bottom: 12px;
-}
+  canvas.width = boardW * scale;
+  canvas.height = boardH * scale;
+  container.appendChild(canvas);
 
-.form-group label {
-  display: block;
-  font-size: 0.88rem;
-  font-weight: 600;
-  margin-bottom: 5px;
-}
+  // 1. 繪製底板背景與邊框
+  ctx.fillStyle = '#e8d8c3';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = '#8d6e63';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(0, 0, canvas.width, canvas.height);
 
-.inline-group {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
+  // 2. 繪製切割好的木片
+  const colors = ['#409EFF', '#67C23A', '#E6A23C', '#F56C6C', '#909399', '#9c27b0', '#009688', '#3f51b5'];
+  
+  placedItems.forEach((item, i) => {
+    const x = item.x * scale;
+    const y = item.y * scale;
+    const w = item.w * scale;
+    const h = item.h * scale;
 
-input[type="number"], select {
-  width: 100%;
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  font-size: 0.9rem;
-}
+    ctx.fillStyle = colors[i % colors.length];
+    ctx.globalAlpha = 0.85;
+    ctx.fillRect(x, y, w, h);
+    
+    ctx.globalAlpha = 1.0;
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(x, y, w, h);
 
-.checkbox-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.9rem;
-  margin: 10px 0;
-}
-
-.item-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.item-row input {
-  flex: 1;
-  min-width: 0;
-}
-
-.btn-danger {
-  background: #f56c6c;
-  color: white;
-  border: none;
-  padding: 8px 10px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.btn-secondary {
-  background: #e6a23c;
-  color: white;
-  border: none;
-  padding: 8px 12px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: 600;
-  width: 100%;
-  margin-top: 5px;
-}
-
-.btn-primary {
-  background: var(--primary);
-  color: white;
-  border: none;
-  padding: 12px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: bold;
-  width: 100%;
-  font-size: 1rem;
-  margin-top: 15px;
-}
-
-/* 統計資訊欄 */
-.stats {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-  margin-bottom: 15px;
-  text-align: center;
-}
-
-.stat-card {
-  background: #f0f4f9;
-  padding: 10px 5px;
-  border-radius: 6px;
-}
-
-.stat-card .val {
-  font-size: 1.1rem;
-  font-weight: bold;
-  color: var(--primary);
-}
-
-.stat-card .lbl {
-  font-size: 0.75rem;
-  color: #606266;
-  margin-top: 2px;
-}
-
-/* 板材頁籤樣式 */
-.sheet-tabs {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 12px;
-}
-
-.tab-btn {
-  background: #e4e7ed;
-  border: none;
-  padding: 6px 14px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--text);
-  transition: all 0.2s;
-}
-
-.tab-btn.active {
-  background: var(--primary);
-  color: #ffffff;
-}
-
-#canvasContainer {
-  width: 100%;
-  overflow-x: auto;
-  background: #fafafa;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  text-align: center;
-  padding: 10px;
-  min-height: 400px;
-}
-
-canvas {
-  background: #fff;
-  box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+    // 標記尺寸文字 (當區塊足夠大時才繪製)
+    if (w > 25 && h > 15) {
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `${Math.max(10, Math.min(13, w / 5))}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const label = `${item.origW}×${item.origH}${item.rotated ? ' ↻' : ''}`;
+      ctx.fillText(label, x + w / 2, y + h / 2);
+    }
+  });
 }
