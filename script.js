@@ -2,23 +2,23 @@ let currentUnit = 'mm';
 let allSheetsResults = []; // 儲存所有木板的計算結果
 let lastTotalPerimeter = 0; // 儲存當前計算出的總周長
 
-// 頁面載入時預設帶入一列空白輸入框
+// 頁面載入時初始化預設列
 window.onload = () => {
     addItemRow('', '', '');
     updatePerimeterDisplay();
 };
 
-// 動態新增切片項目（無預設值）
+// 動態新增切片項目 (無預設值)
 function addItemRow(w = '', h = '', count = '') {
     const container = document.getElementById('itemList');
     const div = document.createElement('div');
     div.className = 'item-row';
     div.innerHTML = `
-    <input type="number" class="item-w" placeholder="長" value="${w}" step="any">
+    <input type="number" class="form-control item-w" placeholder="長" value="${w}" step="any">
     <span>×</span>
-    <input type="number" class="item-h" placeholder="寬" value="${h}" step="any">
-    <input type="number" class="item-count" placeholder="數量" value="${count}" min="1">
-    <button class="btn-danger" onclick="this.parentElement.remove()">✕</button>
+    <input type="number" class="form-control item-h" placeholder="寬" value="${h}" step="any">
+    <input type="number" class="form-control item-count" placeholder="數量" value="${count}" min="1">
+    <button class="btn-delete" title="刪除此列" onclick="this.parentElement.remove()">✕</button>
     `;
     container.appendChild(div);
 }
@@ -35,7 +35,7 @@ function handleUnitChange(newUnit) {
         if (input.value) input.value = (parseFloat(input.value) * factor).toFixed(2).replace(/\.00$/, '');
     });
 
-    // 轉換切片尺寸
+    // 轉換切片需求尺寸
     document.querySelectorAll('.item-w, .item-h').forEach(input => {
         if (input.value) input.value = (parseFloat(input.value) * factor).toFixed(2).replace(/\.00$/, '');
     });
@@ -49,7 +49,7 @@ function handleUnitChange(newUnit) {
     updatePerimeterDisplay();
 }
 
-// 更新總周長文字顯示
+// 更新總周長顯示
 function updatePerimeterDisplay() {
     const formattedPerimeter = lastTotalPerimeter.toFixed(1).replace(/\.0$/, '');
     document.getElementById('statPerimeter').innerText = `${formattedPerimeter} ${currentUnit}`;
@@ -67,7 +67,7 @@ function calculateLayout() {
         return;
     }
 
-    // 收集所有需要切割的獨立區塊
+    // 收集所有切片需求
     let unplacedItems = [];
     const rows = document.querySelectorAll('.item-row');
 
@@ -97,7 +97,7 @@ function calculateLayout() {
         return;
     }
 
-    // 優先放入較大面積的木板 (Greedy Order)
+    // 優先排入較大面積之切片 (Greedy Order)
     unplacedItems.sort((a, b) => b.area - a.area);
 
     allSheetsResults = [];
@@ -149,7 +149,7 @@ function calculateLayout() {
                 });
                 sheetPlacedArea += item.area;
 
-                // 計算並累加單塊木板周長: 2 * (長 + 寬)
+                // 累加單塊木板周長: 2 * (長 + 寬)
                 calculatedTotalPerimeter += 2 * (item.w + item.h);
 
                 // 切割剩餘可利用空間
@@ -179,7 +179,7 @@ function calculateLayout() {
             }
         }
 
-        // 防呆機制：如果一張板子連一個都放不進去，說明該物件超出尺寸限制，終止迴圈
+        // 防呆機制：若當前板材無法再排入任何物件，終止迴圈
         if (placedInThisSheet.length === 0) {
             console.warn('部分物件過大無法排入任何板材。');
             break;
@@ -204,7 +204,7 @@ function calculateLayout() {
     document.getElementById('statSheets').innerText = allSheetsResults.length;
     updatePerimeterDisplay();
 
-    // 渲染頁籤與第一張底板的 Canvas
+    // 渲染頁籤與第一個 Canvas 預覽圖
     renderTabs(boardW, boardH);
     if (allSheetsResults.length > 0) {
         switchSheet(0, boardW, boardH);
@@ -229,7 +229,7 @@ function renderTabs(boardW, boardH) {
     });
 }
 
-// 切換顯示特定一張底板
+// 切換特定底板視圖
 function switchSheet(index, boardW, boardH) {
     const sheet = allSheetsResults[index];
     if (sheet) {
@@ -237,7 +237,7 @@ function switchSheet(index, boardW, boardH) {
     }
 }
 
-// 畫出 Canvas 木板佈局
+// 畫出 Canvas 木板佈局視覺圖
 function renderCanvas(boardW, boardH, placedItems) {
     const container = document.getElementById('canvasContainer');
     container.innerHTML = '';
@@ -245,8 +245,8 @@ function renderCanvas(boardW, boardH, placedItems) {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
 
-    // 依容器寬度動態縮放 Canvas
-    const maxCanvasWidth = Math.min(container.clientWidth - 30, 700);
+    // 動態計算 Canvas 最佳顯示寬度
+    const maxCanvasWidth = Math.min(container.clientWidth - 32, 750);
     const scale = maxCanvasWidth / boardW;
 
     canvas.width = boardW * scale;
@@ -260,8 +260,8 @@ function renderCanvas(boardW, boardH, placedItems) {
     ctx.lineWidth = 2;
     ctx.strokeRect(0, 0, canvas.width, canvas.height);
 
-    // 2. 繪製切割好的木片
-    const colors = ['#409EFF', '#67C23A', '#E6A23C', '#F56C6C', '#909399', '#9c27b0', '#009688', '#3f51b5'];
+    // 2. 繪製切片區塊
+    const colors = ['#2563eb', '#16a34a', '#d97706', '#dc2626', '#4f46e5', '#0891b2', '#9333ea', '#059669'];
 
     placedItems.forEach((item, i) => {
         const x = item.x * scale;
@@ -278,10 +278,10 @@ function renderCanvas(boardW, boardH, placedItems) {
         ctx.lineWidth = 1.5;
         ctx.strokeRect(x, y, w, h);
 
-        // 標記尺寸文字 (當區塊足夠大時才繪製)
-        if (w > 25 && h > 15) {
+        // 標記尺寸標籤
+        if (w > 28 && h > 16) {
             ctx.fillStyle = '#ffffff';
-            ctx.font = `${Math.max(10, Math.min(13, w / 5))}px sans-serif`;
+            ctx.font = `600 ${Math.max(10, Math.min(13, w / 5))}px sans-serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             const label = `${item.origW}×${item.origH}${item.rotated ? ' ↻': ''}`;
