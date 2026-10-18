@@ -26,8 +26,9 @@
 
                 <div class="form-group">
                     <label for="unitSelect">單位選擇</label>
-                    <select id="unitSelect" class="form-control" onchange="handleUnitChange(this.value)">
-                        <option value="mm" selected>mm (公厘)</option>
+                    <select id="unitSelect" class="form-control" onchange="handleUnitChange(this.value); clearInvalidMark(this);">
+                        <option value="" disabled selected>請選擇</option>
+                        <option value="mm">mm (公厘)</option>
                         <option value="cm">cm (公分)</option>
                     </select>
                 </div>
@@ -35,30 +36,31 @@
                 <div class="form-group">
                     <label>底板尺寸 (長 × 寬)</label>
                     <div class="inline-inputs">
-                        <input type="number" id="boardW" class="form-control" value="2440" min="1" step="any" placeholder="長" onchange="validatePositiveInput(this)">
+                        <input type="number" id="boardW" class="form-control" value="2440" min="1" step="any" placeholder="長" onchange="validatePositiveInput(this, 'dimension'); clearInvalidMark(this);">
                         <span class="multiply-sign">×</span>
-                        <input type="number" id="boardH" class="form-control" value="1220" min="1" step="any" placeholder="寬" onchange="validatePositiveInput(this)">
+                        <input type="number" id="boardH" class="form-control" value="1220" min="1" step="any" placeholder="寬" onchange="validatePositiveInput(this, 'dimension'); clearInvalidMark(this);">
                     </div>
                 </div>
 
                 <div class="form-group">
                     <label for="gap">鋸縫 / 間隔</label>
-                    <input type="number" id="gap" class="form-control" value="3" min="0" step="any" placeholder="鋸縫" onchange="validatePositiveInput(this, true)">
+                    <input type="number" id="gap" class="form-control" value="3" min="0" step="any" placeholder="鋸縫" onchange="validatePositiveInput(this, 'zeroAllowed'); clearInvalidMark(this);">
                 </div>
 
                 <div class="form-group">
                     <label for="allowRotationSelect">允許旋轉</label>
-                    <select id="allowRotationSelect" class="form-control">
-                        <option value="true" selected>是</option>
+                    <select id="allowRotationSelect" class="form-control" onchange="clearInvalidMark(this);">
+                        <option value="" disabled selected>請選擇</option>
+                        <option value="true">是</option>
                         <option value="false">否</option>
                     </select>
                 </div>
 
                 <div class="form-group">
                     <label for="cutMethodSelect">裁切方式</label>
-                    <select id="cutMethodSelect" class="form-control">
+                    <select id="cutMethodSelect" class="form-control" onchange="clearInvalidMark(this);">
                         <option value="" disabled selected>請選擇</option>
-                        <option value="cnc">CNC 裁切</option>
+                        <option value="cnc">CNC裁切</option>
                         <option value="saw">裁板機裁切</option>
                     </select>
                 </div>
@@ -108,7 +110,7 @@
                     <span class="step-badge">3</span>
                     <h2>計算結果</h2>
                     <div class="header-actions">
-                        <button id="exportPdfBtn" class="btn btn-sm btn-outline" onclick="exportToPDF()" disabled title="請先完成計算">
+                        <button id="exportPdfBtn" class="btn btn-sm btn-outline" onclick="exportToPDF()" disabled>
                             📄 匯出 PDF / 列印
                         </button>
                     </div>
@@ -161,13 +163,13 @@
     <div id="noticeModal" class="modal-backdrop">
         <div class="modal-card">
             <div class="modal-header">
-                <h3>📢 系統公告</h3>
+                <h3>📢 公告</h3>
             </div>
             <div class="modal-body">
 
                 <div class="notice-section new">
                     <h4 class="notice-topic-title">
-                        【公告】全新系統上線
+                        【公告】歡迎來到全新系統
                         <span class="notice-date">2026-10-17</span>
                     </h4>
                     <p>
@@ -181,11 +183,22 @@
                         <li>提升系統穩定度</li>
                     </ul>
                 </div>
+                
+                <div class="notice-section">
+                    <h4 class="notice-topic-title">
+                        【系統】請將本網站更新於網址列 / 快捷區
+                        <span class="notice-date">系統公告</span>
+                    </h4>
+                    <ul class="modal-notice-list">
+                        <li>本系統與舊系統使用不同網址，請將書籤列舊網址換成本網站</li>
+                        <li>舊網址將於日後移除</li>
+                    </ul>
+                </div>
 
                 <div class="notice-section">
                     <h4 class="notice-topic-title">
                         【系統】Excel匯入功能說明
-                        <span class="notice-date">2026-10-18</span>
+                        <span class="notice-date">系統公告</span>
                     </h4>
                     <ul class="modal-notice-list">
                         <li>僅支援.xlsx、.xls、.csv三種檔案類型</li>
