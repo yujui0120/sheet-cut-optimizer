@@ -159,6 +159,13 @@ body {
     box-shadow: 0 0 0 3.5px rgba(37, 99, 235, 0.15);
 }
 
+/* 驗證未填紅框指示 */
+.form-control.is-invalid {
+    border-color: var(--danger) !important;
+    background-color: #fef2f2;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2) !important;
+}
+
 .inline-inputs {
     display: flex;
     align-items: center;
