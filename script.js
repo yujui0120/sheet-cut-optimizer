@@ -14,10 +14,31 @@ function closeNoticeModal() {
     document.getElementById('noticeModal').style.display = 'none';
 }
 
-function validatePositiveInput(input, allowZero = false) {
+/**
+* 負數與數值校正功能優化
+* type:
+*   - 'zeroAllowed': 鋸縫/間隔 (gap)、數量 (count) -> 負數校正為 0
+*   - 'dimension': 尺寸 (長, 寬) -> 負數或 0 校正為 1
+*/
+function validatePositiveInput(input, type = 'dimension') {
+    if (input.value === '') return;
+
     const val = parseFloat(input.value);
-    if (isNaN(val) || (allowZero ? val < 0: val <= 0)) {
-        input.value = allowZero ? 0: 1;
+    if (type === 'zeroAllowed') {
+        if (isNaN(val) || val < 0) {
+            input.value = 0;
+        }
+    } else {
+        // dimension
+        if (isNaN(val) || val <= 0) {
+            input.value = 1;
+        }
+    }
+}
+
+function clearInvalidMark(element) {
+    if (element) {
+        element.classList.remove('is-invalid');
     }
 }
 
@@ -34,10 +55,10 @@ function addItemRow(w = '', h = '', count = '', focusFirst = false) {
     const div = document.createElement('div');
     div.className = 'item-row';
     div.innerHTML = `
-    <input type="number" class="form-control item-w" placeholder="長" value="${w}" min="1" step="any" onchange="validatePositiveInput(this)" onkeydown="handleKeyNavigation(event, this)">
+    <input type="number" class="form-control item-w" placeholder="長" value="${w}" min="1" step="any" onchange="validatePositiveInput(this, 'dimension'); clearInvalidMark(this);" onkeydown="handleKeyNavigation(event, this)">
     <span>×</span>
-    <input type="number" class="form-control item-h" placeholder="寬" value="${h}" min="1" step="any" onchange="validatePositiveInput(this)" onkeydown="handleKeyNavigation(event, this)">
-    <input type="number" class="form-control item-count" placeholder="數量" value="${count}" min="1" step="1" onchange="validatePositiveInput(this)" onkeydown="handleKeyNavigation(event, this)">
+    <input type="number" class="form-control item-h" placeholder="寬" value="${h}" min="1" step="any" onchange="validatePositiveInput(this, 'dimension'); clearInvalidMark(this);" onkeydown="handleKeyNavigation(event, this)">
+    <input type="number" class="form-control item-count" placeholder="數量" value="${count}" min="0" step="1" onchange="validatePositiveInput(this, 'zeroAllowed'); clearInvalidMark(this);" onkeydown="handleKeyNavigation(event, this)">
     <button class="btn-delete" title="刪除此列" onclick="this.parentElement.remove()">✕</button>
     `;
     container.appendChild(div);
@@ -53,7 +74,8 @@ function addItemRow(w = '', h = '', count = '', focusFirst = false) {
 function handleKeyNavigation(event, currentInput) {
     if (event.key === 'Enter') {
         event.preventDefault();
-        validatePositiveInput(currentInput);
+        const type = currentInput.classList.contains('item-count') ? 'zeroAllowed': 'dimension';
+        validatePositiveInput(currentInput, type);
 
         const row = currentInput.closest('.item-row');
         const rowInputs = Array.from(row.querySelectorAll('input[type="number"]'));
@@ -80,13 +102,13 @@ function handleKeyNavigation(event, currentInput) {
 }
 
 function handleUnitChange(newUnit) {
-    if (newUnit === currentUnit) return;
+    if (!newUnit || newUnit === currentUnit) return;
 
     const factor = newUnit === 'cm' ? 0.1: 10;
 
     ['boardW', 'boardH', 'gap'].forEach(id => {
         const input = document.getElementById(id);
-        if (input.value) input.value = (parseFloat(input.value) * factor).toFixed(2).replace(/\.00$/, '');
+        if (input && input.value) input.value = (parseFloat(input.value) * factor).toFixed(2).replace(/\.00$/, '');
     });
 
     document.querySelectorAll('.item-w, .item-h').forEach(input => {
@@ -103,7 +125,8 @@ function handleUnitChange(newUnit) {
 
 function updatePerimeterDisplay() {
     const formattedPerimeter = lastTotalPerimeter.toFixed(1).replace(/\.0$/, '');
-    document.getElementById('statPerimeter').innerText = `${formattedPerimeter} ${currentUnit}`;
+    const unitText = currentUnit ? currentUnit: 'mm';
+    document.getElementById('statPerimeter').innerText = `${formattedPerimeter} ${unitText}`;
 }
 
 function handleExcelUpload(event) {
@@ -290,40 +313,114 @@ function splitFreeRectSaw(freeRects, freeRect, usedW, usedH, gap) {
 }
 
 function calculateLayout() {
-    const cutMethodSelect = document.getElementById('cutMethodSelect');
-    if (!cutMethodSelect.value) {
-        alert('請選擇裁切方式（CNC 裁切 或 裁板機裁切）！');
-        cutMethodSelect.focus();
-        return;
+    // 移除之前的無效標記 (紅框)
+    document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+
+    let isValid = true;
+    let firstInvalidElem = null;
+
+    function markInvalid(elem) {
+        isValid = false;
+        if (elem) {
+            elem.classList.add('is-invalid');
+            if (!firstInvalidElem) firstInvalidElem = elem;
+        }
     }
 
-    const cutMethod = cutMethodSelect.value;
+    // 1. 檢查參數設定區 下拉選單與輸入框
+    const unitSelect = document.getElementById('unitSelect');
+    if (!unitSelect.value) markInvalid(unitSelect);
+
+    const allowRotationSelect = document.getElementById('allowRotationSelect');
+    if (!allowRotationSelect.value) markInvalid(allowRotationSelect);
+
+    const cutMethodSelect = document.getElementById('cutMethodSelect');
+    if (!cutMethodSelect.value) markInvalid(cutMethodSelect);
 
     const boardWInput = document.getElementById('boardW');
     const boardHInput = document.getElementById('boardH');
-    validatePositiveInput(boardWInput);
-    validatePositiveInput(boardHInput);
 
-    const boardW = parseFloat(boardWInput.value);
-    const boardH = parseFloat(boardHInput.value);
+    if (!boardWInput.value || parseFloat(boardWInput.value) <= 0) {
+        markInvalid(boardWInput);
+    } else {
+        validatePositiveInput(boardWInput, 'dimension');
+    }
+
+    if (!boardHInput.value || parseFloat(boardHInput.value) <= 0) {
+        markInvalid(boardHInput);
+    } else {
+        validatePositiveInput(boardHInput, 'dimension');
+    }
 
     const gapInput = document.getElementById('gap');
-    validatePositiveInput(gapInput, true);
-    const gap = parseFloat(gapInput.value) || 0;
+    if (gapInput.value === '' || parseFloat(gapInput.value) < 0) {
+        markInvalid(gapInput);
+    } else {
+        validatePositiveInput(gapInput, 'zeroAllowed');
+    }
 
-    const allowRotation = document.getElementById('allowRotationSelect').value === 'true';
-
-    let unplacedItems = [];
+    // 2. 清理與檢驗切片需求清單
     const rows = document.querySelectorAll('.item-row');
-
-    rows.forEach((row, idx) => {
+    rows.forEach(row => {
         const wInput = row.querySelector('.item-w');
         const hInput = row.querySelector('.item-h');
         const countInput = row.querySelector('.item-count');
 
-        validatePositiveInput(wInput);
-        validatePositiveInput(hInput);
-        validatePositiveInput(countInput);
+        const wVal = wInput.value.trim();
+        const hVal = hInput.value.trim();
+        const countVal = countInput.value.trim();
+
+        // 需求 3：長、寬、高(數量)都空著，自動移除該行
+        if (wVal === '' && hVal === '' && countVal === '') {
+            row.remove();
+            return;
+        }
+
+        // 若不是完全空白，則進行欄位內容校正與驗證
+        if (wVal === '' || parseFloat(wVal) <= 0) {
+            markInvalid(wInput);
+        } else {
+            validatePositiveInput(wInput, 'dimension');
+        }
+
+        if (hVal === '' || parseFloat(hVal) <= 0) {
+            markInvalid(hInput);
+        } else {
+            validatePositiveInput(hInput, 'dimension');
+        }
+
+        if (countVal === '' || parseFloat(countVal) < 0) {
+            markInvalid(countInput);
+        } else {
+            validatePositiveInput(countInput, 'zeroAllowed');
+        }
+    });
+
+    const remainingRows = document.querySelectorAll('.item-row');
+
+    // 若填寫不完整或無任何有效需求行
+    if (!isValid || remainingRows.length === 0) {
+        if (remainingRows.length === 0) {
+            addItemRow('', '', '', false);
+        }
+        alert('請確認參數設定完整');
+        if (firstInvalidElem) firstInvalidElem.focus();
+        return;
+    }
+
+    // 3. 開始計算邏輯
+    const boardW = parseFloat(boardWInput.value);
+    const boardH = parseFloat(boardHInput.value);
+    const gap = parseFloat(gapInput.value) || 0;
+    const allowRotation = allowRotationSelect.value === 'true';
+    const cutMethod = cutMethodSelect.value;
+
+    let unplacedItems = [];
+
+    remainingRows.forEach((row, idx) => {
+        const wInput = row.querySelector('.item-w');
+        const hInput = row.querySelector('.item-h');
+        const countInput = row.querySelector('.item-count');
 
         const w = parseFloat(wInput.value);
         const h = parseFloat(hInput.value);
@@ -346,7 +443,7 @@ function calculateLayout() {
     });
 
     if (unplacedItems.length === 0) {
-        alert('請輸入至少一組有效的切片長、寬與數量！');
+        alert('請輸入至少一組有效的切片長、寬與數量（數量需大於0）！');
         return;
     }
 
@@ -518,7 +615,10 @@ function calculateLayout() {
     document.getElementById('statSheets').innerText = allSheetsResults.length;
     updatePerimeterDisplay();
 
-    document.getElementById('exportPdfBtn').disabled = false;
+    // 需求 2：計算後啟用按鈕並移除提示詞
+    const exportPdfBtn = document.getElementById('exportPdfBtn');
+    exportPdfBtn.disabled = false;
+    exportPdfBtn.removeAttribute('title');
 
     renderTabs(boardW, boardH);
     if (allSheetsResults.length > 0) {
