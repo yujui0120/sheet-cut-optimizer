@@ -14,12 +14,6 @@ function closeNoticeModal() {
     document.getElementById('noticeModal').style.display = 'none';
 }
 
-/**
-* 負數與數值校正功能優化
-* type:
-*   - 'zeroAllowed': 鋸縫/間隔 (gap)、數量 (count) -> 負數校正為 0
-*   - 'dimension': 尺寸 (長, 寬) -> 負數或 0 校正為 1
-*/
 function validatePositiveInput(input, type = 'dimension') {
     if (input.value === '') return;
 
@@ -29,7 +23,6 @@ function validatePositiveInput(input, type = 'dimension') {
             input.value = 0;
         }
     } else {
-        // dimension
         if (isNaN(val) || val <= 0) {
             input.value = 1;
         }
@@ -313,7 +306,6 @@ function splitFreeRectSaw(freeRects, freeRect, usedW, usedH, gap) {
 }
 
 function calculateLayout() {
-    // 移除之前的無效標記 (紅框)
     document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
 
     let isValid = true;
@@ -326,8 +318,6 @@ function calculateLayout() {
             if (!firstInvalidElem) firstInvalidElem = elem;
         }
     }
-
-    // 1. 檢查參數設定區 下拉選單與輸入框
     const unitSelect = document.getElementById('unitSelect');
     if (!unitSelect.value) markInvalid(unitSelect);
 
@@ -358,8 +348,6 @@ function calculateLayout() {
     } else {
         validatePositiveInput(gapInput, 'zeroAllowed');
     }
-
-    // 2. 清理與檢驗切片需求清單
     const rows = document.querySelectorAll('.item-row');
     rows.forEach(row => {
         const wInput = row.querySelector('.item-w');
@@ -369,14 +357,10 @@ function calculateLayout() {
         const wVal = wInput.value.trim();
         const hVal = hInput.value.trim();
         const countVal = countInput.value.trim();
-
-        // 需求 3：長、寬、高(數量)都空著，自動移除該行
         if (wVal === '' && hVal === '' && countVal === '') {
             row.remove();
             return;
         }
-
-        // 若不是完全空白，則進行欄位內容校正與驗證
         if (wVal === '' || parseFloat(wVal) <= 0) {
             markInvalid(wInput);
         } else {
@@ -397,8 +381,6 @@ function calculateLayout() {
     });
 
     const remainingRows = document.querySelectorAll('.item-row');
-
-    // 若填寫不完整或無任何有效需求行
     if (!isValid || remainingRows.length === 0) {
         if (remainingRows.length === 0) {
             addItemRow('', '', '', false);
@@ -407,8 +389,6 @@ function calculateLayout() {
         if (firstInvalidElem) firstInvalidElem.focus();
         return;
     }
-
-    // 3. 開始計算邏輯
     const boardW = parseFloat(boardWInput.value);
     const boardH = parseFloat(boardHInput.value);
     const gap = parseFloat(gapInput.value) || 0;
@@ -614,8 +594,6 @@ function calculateLayout() {
     document.getElementById('statUsage').innerText = `${avgUsage}%`;
     document.getElementById('statSheets').innerText = allSheetsResults.length;
     updatePerimeterDisplay();
-
-    // 需求 2：計算後啟用按鈕並移除提示詞
     const exportPdfBtn = document.getElementById('exportPdfBtn');
     exportPdfBtn.disabled = false;
     exportPdfBtn.removeAttribute('title');
