@@ -191,7 +191,7 @@
                     </h4>
                     <ul class="modal-notice-list">
                         <li>僅支援.xlsx、.xls、.csv三種檔案類型</li>
-                        <li>匯入後有預覽畫面可以選擇長、寬、數量欄位</li>
+                        <li>系統將從第 6 橫排開始讀取資料</li>
                         <li>非數字內容將自動忽略</li>
                     </ul>
                 </div>
@@ -211,7 +211,7 @@
             </div>
             <div class="modal-body">
                 <p class="modal-tip">
-                    請選擇 Excel 欄位對應（非數字內容將自動忽略）：
+                    請選擇 Excel 欄位對應（系統將從第 6 排開始讀取，非數字內容將自動忽略）：
                 </p>
 
                 <div class="field-mapping-grid">
@@ -238,7 +238,7 @@
                 </div>
 
                 <div class="preview-box">
-                    <label>前 5 列資料預覽：</label>
+                    <label>資料預覽（第 6 ~ 10 列）：</label>
                     <div id="excelPreviewTableContainer" class="table-container"></div>
                 </div>
             </div>
