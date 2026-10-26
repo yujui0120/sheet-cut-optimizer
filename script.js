@@ -14,12 +14,6 @@ function closeNoticeModal() {
     document.getElementById('noticeModal').style.display = 'none';
 }
 
-/**
-* 負數與數值校正功能優化
-* type:
-*   - 'zeroAllowed': 鋸縫/間隔 (gap)、數量 (count) -> 負數校正為 0
-*   - 'dimension': 尺寸 (長, 寬) -> 負數或 0 校正為 1
-*/
 function validatePositiveInput(input, type = 'dimension') {
     if (input.value === '') return;
 
@@ -29,7 +23,6 @@ function validatePositiveInput(input, type = 'dimension') {
             input.value = 0;
         }
     } else {
-        // dimension
         if (isNaN(val) || val <= 0) {
             input.value = 1;
         }
@@ -148,15 +141,13 @@ function handleExcelUpload(event) {
                 header: 1
             });
 
-            // 確保檔案至少有 6 行以上（第 6 行作為標題）
-            if (jsonData.length < 6) {
-                alert('Excel 檔案內的資料不足 6 行，無法從第 6 行開始讀取！');
+            if (jsonData.length < 8) {
+                alert('Excel 檔案內的資料不足 8 行，無法從第 8 行開始讀取！');
                 return;
             }
 
-            // 調整：第 6 橫排 (index 5) 作為欄位標題，之後的橫排作為資料
-            excelHeaders = jsonData[5].map(h => String(h).trim());
-            parsedExcelData = jsonData.slice(6);
+            excelHeaders = jsonData[7].map(h => String(h).trim());
+            parsedExcelData = jsonData.slice(8);
 
             openExcelModal();
         } catch (err) {
@@ -209,14 +200,14 @@ function closeExcelModal() {
 
 function renderExcelPreviewTable() {
     const container = document.getElementById('excelPreviewTableContainer');
-    let html = '<table class="preview-table"><thead><tr>';
+    let html = '<table class="preview-table"><tbody>';
 
+    html += '<tr>';
     excelHeaders.forEach(h => {
-        html += `<th>${h}</th>`;
+        html += `<td>${h !== undefined ? h: ''}</td>`;
     });
-    html += '</tr></thead><tbody>';
+    html += '</tr>';
 
-    // 往下預覽 5 橫排資料
     const previewRows = parsedExcelData.slice(0, 5);
     previewRows.forEach(row => {
         html += '<tr>';
@@ -316,7 +307,6 @@ function splitFreeRectSaw(freeRects, freeRect, usedW, usedH, gap) {
 }
 
 function calculateLayout() {
-    // 移除之前的無效標記 (紅框)
     document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
 
     let isValid = true;
@@ -330,7 +320,6 @@ function calculateLayout() {
         }
     }
 
-    // 1. 檢查參數設定區 下拉選單與輸入框
     const unitSelect = document.getElementById('unitSelect');
     if (!unitSelect.value) markInvalid(unitSelect);
 
@@ -362,7 +351,6 @@ function calculateLayout() {
         validatePositiveInput(gapInput, 'zeroAllowed');
     }
 
-    // 2. 清理與檢驗切片需求清單
     const rows = document.querySelectorAll('.item-row');
     rows.forEach(row => {
         const wInput = row.querySelector('.item-w');
@@ -373,13 +361,11 @@ function calculateLayout() {
         const hVal = hInput.value.trim();
         const countVal = countInput.value.trim();
 
-        // 需求 3：長、寬、高(數量)都空著，自動移除該行
         if (wVal === '' && hVal === '' && countVal === '') {
             row.remove();
             return;
         }
 
-        // 若不是完全空白，則進行欄位內容校正與驗證
         if (wVal === '' || parseFloat(wVal) <= 0) {
             markInvalid(wInput);
         } else {
@@ -401,7 +387,6 @@ function calculateLayout() {
 
     const remainingRows = document.querySelectorAll('.item-row');
 
-    // 若填寫不完整或無任何有效需求行
     if (!isValid || remainingRows.length === 0) {
         if (remainingRows.length === 0) {
             addItemRow('', '', '', false);
@@ -411,7 +396,6 @@ function calculateLayout() {
         return;
     }
 
-    // 3. 開始計算邏輯
     const boardW = parseFloat(boardWInput.value);
     const boardH = parseFloat(boardHInput.value);
     const gap = parseFloat(gapInput.value) || 0;
@@ -618,7 +602,6 @@ function calculateLayout() {
     document.getElementById('statSheets').innerText = allSheetsResults.length;
     updatePerimeterDisplay();
 
-    // 需求 2：計算後啟用按鈕並移除提示詞
     const exportPdfBtn = document.getElementById('exportPdfBtn');
     exportPdfBtn.disabled = false;
     exportPdfBtn.removeAttribute('title');
