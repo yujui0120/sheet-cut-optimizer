@@ -635,15 +635,10 @@ canvas {
     font-size: 0.8rem;
 }
 
-.preview-table th, .preview-table td {
+.preview-table td {
     padding: 6px 10px;
     border: 1px solid var(--border);
     text-align: left;
-}
-
-.preview-table th {
-    background: #f1f5f9;
-    font-weight: 600;
 }
 
 .modal-footer {
