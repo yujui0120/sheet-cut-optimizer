@@ -46,7 +46,7 @@ window.onload = async () => {
         return;
     }
 
-    const allowedIps = ['116.241.16.128', '116.241.16.'];
+    const allowedIps = ['116.241.16.128'];
 
     if (!allowedIps.includes(userIpAddress)) {
         if (loaderContentArea) {
@@ -230,8 +230,15 @@ function handleExcelUpload(event) {
                 return;
             }
 
-            excelHeaders = jsonData[7].map(h => String(h).trim());
-            parsedExcelData = jsonData.slice(8);
+            const maxCols = Math.max(...jsonData.slice(7).map(r => r.length));
+            excelHeaders = Array.from({
+                length: maxCols
+            }, (_, i) => {
+                const headerVal = jsonData[7][i];
+                return (headerVal !== undefined && headerVal !== null) ? String(headerVal).trim(): `第 ${i + 1} 欄`;
+            });
+
+            parsedExcelData = jsonData.slice(7);
 
             openExcelModal();
         } catch (err) {
@@ -291,13 +298,7 @@ function renderExcelPreviewTable() {
     const container = document.getElementById('excelPreviewTableContainer');
     let html = '<table class="preview-table"><tbody>';
 
-    html += '<tr>';
-    excelHeaders.forEach(h => {
-        html += `<td>${h !== undefined ? h: ''}</td>`;
-    });
-    html += '</tr>';
-
-    const previewRows = parsedExcelData.slice(0, 5);
+    const previewRows = parsedExcelData.slice(0, 6);
     previewRows.forEach(row => {
         html += '<tr>';
         excelHeaders.forEach((_, colIdx) => {
