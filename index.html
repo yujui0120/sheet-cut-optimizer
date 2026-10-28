@@ -10,6 +10,22 @@
 </head>
 <body>
 
+    <div id="initialLoader" class="initial-loader">
+        <header class="header">
+            <h1>木板最大利用與裁切計算器</h1>
+        </header>
+        <div class="loader-content" id="loaderContentArea">
+            <div class="spinner"></div>
+            <p>
+                正在進行設備權限檢查...
+            </p>
+            <p>
+                若載入時間過長，請開啟無痕模式再試一次。
+
+            </p>
+        </div>
+    </div>
+
     <header class="header">
         <h1>木板最大利用與裁切計算器</h1>
     </header>
@@ -85,6 +101,7 @@
                     <span>長</span>
                     <span></span>
                     <span>寬</span>
+                    <span>厚</span>
                     <span>數量</span>
                     <span></span>
                 </div>
@@ -92,7 +109,7 @@
                 <div id="itemList" class="item-list"></div>
 
                 <div class="panel-bottom-actions">
-                    <button class="btn btn-secondary" onclick="addItemRow('', '', '', true)">
+                    <button class="btn btn-secondary" onclick="addItemRow('', '', '', '', true)">
                         <span class="plus-icon">+</span> 新增尺寸
                     </button>
 
@@ -160,7 +177,7 @@
 
     </div>
 
-    <div id="noticeModal" class="modal-backdrop">
+    <div id="noticeModal" class="modal-backdrop" style="display: none;">
         <div class="modal-card">
             <div class="modal-header">
                 <h3>📢 公告</h3>
@@ -169,17 +186,15 @@
 
                 <div class="notice-section new">
                     <h4 class="notice-topic-title">
-                        【重要】IP驗證功能
-                        <span class="notice-date">2026-10-26</span>
+                        【公告】更新公告
+                        <span class="notice-date">2026-10-28</span>
                     </h4>
                     <ul class="modal-notice-list">
-                        <li>為保護本網頁，將於日後啟用IP保護功能</li>
-                        <li>啟用後將只有授權設備能使用本網頁</li>
-                        <li>日後欲使用之設備請盡速將IP提交給李育睿</li>
-                        <li>IP查詢：<a href="https://myip.com.tw/">點我查詢</a></li>
+                        <li>若非授權之IP，無法進入本頁面</li>
+                        <li>同尺寸皆以同顏色顯示</li>
                     </ul>
                 </div>
-                
+
                 <div class="notice-section">
                     <h4 class="notice-topic-title">
                         【公告】歡迎來到全新系統
@@ -235,6 +250,10 @@
                     <div class="mapping-item">
                         <label for="colSelectH">指定「寬」直欄：</label>
                         <select id="colSelectH" class="form-control"></select>
+                    </div>
+                    <div class="mapping-item">
+                        <label for="colSelectD">指定「厚」直欄：</label>
+                        <select id="colSelectD" class="form-control"></select>
                     </div>
                     <div class="mapping-item">
                         <label for="colSelectCount">指定「數量」直欄：</label>
