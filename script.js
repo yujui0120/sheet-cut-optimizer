@@ -1,14 +1,97 @@
 let currentUnit = 'mm';
 let allSheetsResults = [];
 let lastTotalPerimeter = 0;
+let userIpAddress = '未知 IP';
 
 let parsedExcelData = [];
 let excelHeaders = [];
 
-window.onload = () => {
-    addItemRow('', '', '', false);
+window.onload = async () => {
+    addItemRow('', '', '', '', false);
     updatePerimeterDisplay();
+
+    let fetchSuccess = false;
+    const loaderContentArea = document.getElementById('loaderContentArea');
+
+    try {
+        const response = await fetch('https://api.ipify.org?format=json');
+        const data = await response.json();
+        if (data && data.ip) {
+            userIpAddress = data.ip;
+            fetchSuccess = true;
+        }
+    } catch (error1) {
+        try {
+            const response2 = await fetch('https://ipwho.is/');
+            const data2 = await response2.json();
+            if (data2 && data2.ip) {
+                userIpAddress = data2.ip;
+                fetchSuccess = true;
+            }
+        } catch (error2) {}
+    }
+
+    if (!fetchSuccess) {
+        if (loaderContentArea) {
+            loaderContentArea.innerHTML = `
+            <div style="font-size: 1.6rem; color: var(--danger); font-weight: 800; margin-bottom: 8px;">無法取得 IP</div>
+            <div style="font-size: 1.1rem; color: var(--text-main); font-weight: 600; margin-bottom: 6px;">無法取得您的設備IP</div>
+            <div style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 14px;">請輸入通行碼以繼續：</div>
+            <div style="display: flex; gap: 8px; max-width: 280px; width: 100%; flex-direction: column;">
+            <input type="password" id="passcodeInput" class="form-control" placeholder="請輸入通行碼">
+            <button class="btn btn-primary" style="width: 100%; margin-top: 4px;" onclick="verifyPasscode()">確認</button>
+            </div>
+            `;
+        }
+        return;
+    }
+
+    const allowedIps = ['116.241.16.128', '116.241.16.'];
+
+    if (!allowedIps.includes(userIpAddress)) {
+        if (loaderContentArea) {
+            loaderContentArea.innerHTML = `
+            <div style="font-size: 1.6rem; color: var(--danger); font-weight: 800; margin-bottom: 8px;">存取權限錯誤</div>
+            <div style="font-size: 1.1rem; color: var(--text-main); font-weight: 600; margin-bottom: 6px;">無法使用網頁</div>
+            <div style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 14px;">偵測到您的 IP (${userIpAddress}) 未授權，請輸入通行碼：</div>
+            <div style="display: flex; gap: 8px; max-width: 280px; width: 100%; flex-direction: column;">
+            <input type="password" id="passcodeInput" class="form-control" placeholder="請輸入通行碼">
+            <button class="btn btn-primary" style="width: 100%; margin-top: 4px;" onclick="verifyPasscode()">確認</button>
+            </div>
+            `;
+        }
+        return;
+    }
+
+    grantAccess();
 };
+
+function verifyPasscode() {
+    const inputVal = document.getElementById('passcodeInput').value;
+    if (inputVal === 'tongsun52809089') {
+        grantAccess();
+    } else {
+        alert('通行碼錯誤，請重新輸入！');
+    }
+}
+
+function grantAccess() {
+    const ipElement = document.getElementById('clientIpDisplay');
+    if (ipElement) {
+        ipElement.innerText = `您的設備 IP: ${userIpAddress}`;
+    }
+
+    const loader = document.getElementById('initialLoader');
+    if (loader) {
+        loader.style.opacity = '0';
+        setTimeout(() => {
+            loader.style.display = 'none';
+            document.getElementById('noticeModal').style.display = 'flex';
+        }, 300);
+    } else {
+        document.getElementById('noticeModal').style.display = 'flex';
+    }
+}
 
 function closeNoticeModal() {
     document.getElementById('noticeModal').style.display = 'none';
@@ -39,11 +122,11 @@ function clearAllItems() {
     if (confirm('確定要清除所有切片需求項目嗎？')) {
         const container = document.getElementById('itemList');
         container.innerHTML = '';
-        addItemRow('', '', '', false);
+        addItemRow('', '', '', '', false);
     }
 }
 
-function addItemRow(w = '', h = '', count = '', focusFirst = false) {
+function addItemRow(w = '', h = '', d = '', count = '', focusFirst = false) {
     const container = document.getElementById('itemList');
     const div = document.createElement('div');
     div.className = 'item-row';
@@ -51,6 +134,7 @@ function addItemRow(w = '', h = '', count = '', focusFirst = false) {
     <input type="number" class="form-control item-w" placeholder="長" value="${w}" min="1" step="any" onchange="validatePositiveInput(this, 'dimension'); clearInvalidMark(this);" onkeydown="handleKeyNavigation(event, this)">
     <span>×</span>
     <input type="number" class="form-control item-h" placeholder="寬" value="${h}" min="1" step="any" onchange="validatePositiveInput(this, 'dimension'); clearInvalidMark(this);" onkeydown="handleKeyNavigation(event, this)">
+    <input type="number" class="form-control item-d" placeholder="厚" value="${d}" min="0" step="any" onchange="validatePositiveInput(this, 'zeroAllowed'); clearInvalidMark(this);" onkeydown="handleKeyNavigation(event, this)">
     <input type="number" class="form-control item-count" placeholder="數量" value="${count}" min="0" step="1" onchange="validatePositiveInput(this, 'zeroAllowed'); clearInvalidMark(this);" onkeydown="handleKeyNavigation(event, this)">
     <button class="btn-delete" title="刪除此列" onclick="this.parentElement.remove()">✕</button>
     `;
@@ -67,7 +151,7 @@ function addItemRow(w = '', h = '', count = '', focusFirst = false) {
 function handleKeyNavigation(event, currentInput) {
     if (event.key === 'Enter') {
         event.preventDefault();
-        const type = currentInput.classList.contains('item-count') ? 'zeroAllowed': 'dimension';
+        const type = currentInput.classList.contains('item-count') ? 'zeroAllowed': (currentInput.classList.contains('item-d') ? 'zeroAllowed': 'dimension');
         validatePositiveInput(currentInput, type);
 
         const row = currentInput.closest('.item-row');
@@ -82,7 +166,7 @@ function handleKeyNavigation(event, currentInput) {
             const currentRowIndex = allRows.indexOf(row);
 
             if (currentRowIndex === allRows.length - 1) {
-                addItemRow('', '', '', true);
+                addItemRow('', '', '', '', true);
             } else {
                 const nextRowFirstInput = allRows[currentRowIndex + 1].querySelector('.item-w');
                 if (nextRowFirstInput) {
@@ -104,7 +188,7 @@ function handleUnitChange(newUnit) {
         if (input && input.value) input.value = (parseFloat(input.value) * factor).toFixed(2).replace(/\.00$/, '');
     });
 
-    document.querySelectorAll('.item-w, .item-h').forEach(input => {
+    document.querySelectorAll('.item-w, .item-h, .item-d').forEach(input => {
         if (input.value) input.value = (parseFloat(input.value) * factor).toFixed(2).replace(/\.00$/, '');
     });
 
@@ -164,30 +248,35 @@ function openExcelModal() {
     const modal = document.getElementById('excelModal');
     const selectW = document.getElementById('colSelectW');
     const selectH = document.getElementById('colSelectH');
+    const selectD = document.getElementById('colSelectD');
     const selectCount = document.getElementById('colSelectCount');
 
-    [selectW, selectH, selectCount].forEach(sel => sel.innerHTML = '');
+    [selectW, selectH, selectD, selectCount].forEach(sel => sel.innerHTML = '');
 
     excelHeaders.forEach((header, idx) => {
         const optW = new Option(`${header} (欄 ${idx+1})`, idx);
         const optH = new Option(`${header} (欄 ${idx+1})`, idx);
+        const optD = new Option(`${header} (欄 ${idx+1})`, idx);
         const optCount = new Option(`${header} (欄 ${idx+1})`, idx);
 
         selectW.add(optW);
         selectH.add(optH);
+        selectD.add(optD);
         selectCount.add(optCount);
     });
+
+    if (excelHeaders.length >= 6) selectW.value = 5;
+    if (excelHeaders.length >= 7) selectH.value = 6;
+    if (excelHeaders.length >= 8) selectD.value = 7;
+    if (excelHeaders.length >= 10) selectCount.value = 9;
 
     excelHeaders.forEach((h, idx) => {
         const headerLower = h.toLowerCase();
         if (headerLower.includes('長') || headerLower.includes('length') || headerLower.includes('w')) selectW.value = idx;
         if (headerLower.includes('寬') || headerLower.includes('width') || headerLower.includes('h')) selectH.value = idx;
+        if (headerLower.includes('厚') || headerLower.includes('thick') || headerLower.includes('depth') || headerLower.includes('d')) selectD.value = idx;
         if (headerLower.includes('數') || headerLower.includes('量') || headerLower.includes('count') || headerLower.includes('qty')) selectCount.value = idx;
     });
-
-    if (selectW.value === selectH.value && excelHeaders.length > 1) {
-        selectH.value = 1;
-    }
 
     renderExcelPreviewTable();
 
@@ -225,6 +314,7 @@ function renderExcelPreviewTable() {
 function confirmExcelImport() {
     const colWIdx = parseInt(document.getElementById('colSelectW').value);
     const colHIdx = parseInt(document.getElementById('colSelectH').value);
+    const colDIdx = parseInt(document.getElementById('colSelectD').value);
     const colCountIdx = parseInt(document.getElementById('colSelectCount').value);
     const importMode = document.querySelector('input[name="importMode"]:checked').value;
 
@@ -239,14 +329,17 @@ function confirmExcelImport() {
     parsedExcelData.forEach(row => {
         const rawW = parseFloat(row[colWIdx]);
         const rawH = parseFloat(row[colHIdx]);
+        const rawD = parseFloat(row[colDIdx]);
         let rawCount = parseInt(row[colCountIdx]);
 
         if (isNaN(rawCount) || rawCount < 1) {
             rawCount = 1;
         }
 
+        const validD = !isNaN(rawD) && rawD >= 0 ? rawD: '';
+
         if (!isNaN(rawW) && !isNaN(rawH) && rawW > 0 && rawH > 0) {
-            addItemRow(rawW, rawH, rawCount);
+            addItemRow(rawW, rawH, validD, rawCount);
             importedRowsCount++;
         }
     });
@@ -355,13 +448,15 @@ function calculateLayout() {
     rows.forEach(row => {
         const wInput = row.querySelector('.item-w');
         const hInput = row.querySelector('.item-h');
+        const dInput = row.querySelector('.item-d');
         const countInput = row.querySelector('.item-count');
 
         const wVal = wInput.value.trim();
         const hVal = hInput.value.trim();
+        const dVal = dInput.value.trim();
         const countVal = countInput.value.trim();
 
-        if (wVal === '' && hVal === '' && countVal === '') {
+        if (wVal === '' && hVal === '' && dVal === '' && countVal === '') {
             row.remove();
             return;
         }
@@ -378,6 +473,12 @@ function calculateLayout() {
             validatePositiveInput(hInput, 'dimension');
         }
 
+        if (dVal !== '' && parseFloat(dVal) < 0) {
+            markInvalid(dInput);
+        } else if (dVal !== '') {
+            validatePositiveInput(dInput, 'zeroAllowed');
+        }
+
         if (countVal === '' || parseFloat(countVal) < 0) {
             markInvalid(countInput);
         } else {
@@ -389,7 +490,7 @@ function calculateLayout() {
 
     if (!isValid || remainingRows.length === 0) {
         if (remainingRows.length === 0) {
-            addItemRow('', '', '', false);
+            addItemRow('', '', '', '', false);
         }
         alert('請確認參數設定完整');
         if (firstInvalidElem) firstInvalidElem.focus();
@@ -661,15 +762,26 @@ function drawSheetToCanvas(canvas, boardW, boardH, placedItems, scale) {
     ctx.lineWidth = 2;
     ctx.strokeRect(0, 0, canvas.width, canvas.height);
 
-    const colors = ['#1e40af', '#16a34a', '#d97706', '#dc2626', '#4f46e5', '#0891b2', '#9333ea', '#059669'];
+    const colors = ['#1e40af', '#16a34a', '#d97706', '#dc2626', '#4f46e5', '#0891b2', '#9333ea', '#059669', '#db2777', '#ca8a04', '#0d9488', '#7c3aed'];
+    const dimColorMap = {};
+    let colorIndex = 0;
 
-    placedItems.forEach((item, i) => {
+    placedItems.forEach(item => {
+        const key = `${item.origW}_${item.origH}`;
+        if (!dimColorMap[key]) {
+            dimColorMap[key] = colors[colorIndex % colors.length];
+            colorIndex++;
+        }
+    });
+
+    placedItems.forEach((item) => {
         const x = item.x * scale;
         const y = item.y * scale;
         const w = item.w * scale;
         const h = item.h * scale;
 
-        ctx.fillStyle = colors[i % colors.length];
+        const key = `${item.origW}_${item.origH}`;
+        ctx.fillStyle = dimColorMap[key];
         ctx.globalAlpha = 0.85;
         ctx.fillRect(x, y, w, h);
 
