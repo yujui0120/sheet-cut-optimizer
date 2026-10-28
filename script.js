@@ -52,8 +52,8 @@ window.onload = async () => {
         if (loaderContentArea) {
             loaderContentArea.innerHTML = `
             <div style="font-size: 1.6rem; color: var(--danger); font-weight: 800; margin-bottom: 8px;">存取權限錯誤</div>
-            <div style="font-size: 1.1rem; color: var(--text-main); font-weight: 600; margin-bottom: 6px;">無法使用網頁</div>
-            <div style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 14px;">偵測到您的 IP (${userIpAddress}) 未授權，請輸入通行碼：</div>
+            <div style="font-size: 1.1rem; color: var(--text-main); font-weight: 600; margin-bottom: 6px;">本網頁僅供東山柚木行授權使用者使用，若您為授權使用者，請輸入通行碼。</div>
+            <div style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 14px;">偵測到您的 IP (${userIpAddress}) 未授權</div>
             <div style="display: flex; gap: 8px; max-width: 280px; width: 100%; flex-direction: column;">
             <input type="password" id="passcodeInput" class="form-control" placeholder="請輸入通行碼">
             <button class="btn btn-primary" style="width: 100%; margin-top: 4px;" onclick="verifyPasscode()">確認</button>
@@ -226,7 +226,7 @@ function handleExcelUpload(event) {
             });
 
             if (jsonData.length < 8) {
-                alert('Excel 檔案內的資料不足 8 行，無法從第 8 行開始讀取！');
+                alert('Excel檔案讀取錯誤！');
                 return;
             }
 
