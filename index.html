@@ -86,6 +86,9 @@
                     <span class="step-badge">2</span>
                     <h2>切片需求清單</h2>
                     <div class="header-actions">
+                        <button class="btn btn-sm btn-outline" onclick="toggleThicknessColumn()" title="顯示或隱藏厚度欄位">
+                            👁️ 厚度
+                        </button>
                         <button class="btn btn-sm btn-outline btn-danger-outline" onclick="clearAllItems()" title="清除所有切片需求">
                             🗑️ 清除
                         </button>
@@ -96,11 +99,11 @@
                     </div>
                 </div>
 
-                <div class="item-list-header">
+                <div id="itemListHeader" class="item-list-header">
                     <span>長</span>
                     <span></span>
                     <span>寬</span>
-                    <span>厚</span>
+                    <span class="col-thickness hidden-col">厚</span>
                     <span>數量</span>
                     <span></span>
                 </div>
@@ -183,7 +186,7 @@
             </div>
             <div class="modal-body">
 
-                <div class="notice-section new">
+                <div class="notice-section">
                     <h4 class="notice-topic-title">
                         【公告】更新公告
                         <span class="notice-date">2026-10-28</span>
@@ -192,7 +195,9 @@
                         <li>若非授權之IP，無法進入本頁面</li>
                         <li>同尺寸皆以同顏色顯示</li>
                         <li>新增「厚度」，不影響計算</li>
-                        <li>Excel匯入功能改善</li>
+                        <li>Excel匯入功能支援欄位條件篩選</li>
+                        <li class="red">(11/1追加) Excel匯入新增篩選功能</li>
+                        <li class="red">(11/1追加) 厚度欄位可依需求顯示/隱藏</li>
                     </ul>
                 </div>
 
@@ -215,32 +220,87 @@
     </div>
 
     <div id="excelModal" class="modal-backdrop" style="display: none;">
-        <div class="modal-card">
+        <div class="modal-card" style="max-width: 650px;">
             <div class="modal-header">
-                <h3>Excel 匯入設定</h3>
+                <h3>Excel 匯入設定與篩選</h3>
                 <button class="modal-close" onclick="closeExcelModal()">✕</button>
             </div>
             <div class="modal-body">
                 <p class="modal-tip">
-                    請選擇 Excel 欄位對應（系統將從第 8 排開始讀取，非數字內容將自動忽略）：
+                    請選擇 Excel 欄位對應與篩選條件（有選擇規則且輸入條件才會套用）：
                 </p>
 
                 <div class="field-mapping-grid">
-                    <div class="mapping-item">
-                        <label for="colSelectW">指定「長」直欄：</label>
-                        <select id="colSelectW" class="form-control"></select>
+                    <div class="mapping-item" style="display:grid; grid-template-columns: 1fr 1.4fr; gap:12px; align-items:center; background:#f8fafc; padding:10px; border-radius:8px;">
+                        <div>
+                            <label style="font-size:0.85rem; font-weight:600; margin-bottom:2px;">「長」直欄：</label>
+                            <select id="colSelectW" class="form-control"></select>
+                        </div>
+                        <div>
+                            <label style="font-size:0.85rem; font-weight:600; margin-bottom:2px;">篩選規則：</label>
+                            <div style="display:flex; gap:4px;">
+                                <select id="filterTypeW" class="form-control" style="padding:10px 4px; font-size:0.8rem;">
+                                    <option value="none">無</option>
+                                    <option value="include">僅選取</option>
+                                    <option value="exclude">排除</option>
+                                </select>
+                                <input type="text" id="filterValW" class="form-control" placeholder="輸入值" style="padding:10px 6px;">
+                            </div>
+                        </div>
                     </div>
-                    <div class="mapping-item">
-                        <label for="colSelectH">指定「寬」直欄：</label>
-                        <select id="colSelectH" class="form-control"></select>
+
+                    <div class="mapping-item" style="display:grid; grid-template-columns: 1fr 1.4fr; gap:12px; align-items:center; background:#f8fafc; padding:10px; border-radius:8px;">
+                        <div>
+                            <label style="font-size:0.85rem; font-weight:600; margin-bottom:2px;">「寬」直欄：</label>
+                            <select id="colSelectH" class="form-control"></select>
+                        </div>
+                        <div>
+                            <label style="font-size:0.85rem; font-weight:600; margin-bottom:2px;">篩選規則：</label>
+                            <div style="display:flex; gap:4px;">
+                                <select id="filterTypeH" class="form-control" style="padding:10px 4px; font-size:0.8rem;">
+                                    <option value="none">無</option>
+                                    <option value="include">僅選取</option>
+                                    <option value="exclude">排除</option>
+                                </select>
+                                <input type="text" id="filterValH" class="form-control" placeholder="輸入值" style="padding:10px 6px;">
+                            </div>
+                        </div>
                     </div>
-                    <div class="mapping-item">
-                        <label for="colSelectD">指定「厚」直欄：</label>
-                        <select id="colSelectD" class="form-control"></select>
+
+                    <div class="mapping-item" style="display:grid; grid-template-columns: 1fr 1.4fr; gap:12px; align-items:center; background:#f8fafc; padding:10px; border-radius:8px;">
+                        <div>
+                            <label style="font-size:0.85rem; font-weight:600; margin-bottom:2px;">「厚」直欄：</label>
+                            <select id="colSelectD" class="form-control"></select>
+                        </div>
+                        <div>
+                            <label style="font-size:0.85rem; font-weight:600; margin-bottom:2px;">篩選規則：</label>
+                            <div style="display:flex; gap:4px;">
+                                <select id="filterTypeD" class="form-control" style="padding:10px 4px; font-size:0.8rem;">
+                                    <option value="none">無</option>
+                                    <option value="include">僅選取</option>
+                                    <option value="exclude">排除</option>
+                                </select>
+                                <input type="text" id="filterValD" class="form-control" placeholder="輸入值" style="padding:10px 6px;">
+                            </div>
+                        </div>
                     </div>
-                    <div class="mapping-item">
-                        <label for="colSelectCount">指定「數量」直欄：</label>
-                        <select id="colSelectCount" class="form-control"></select>
+
+                    <div class="mapping-item" style="display:grid; grid-template-columns: 1fr 1.4fr; gap:12px; align-items:center; background:#f8fafc; padding:10px; border-radius:8px;">
+                        <div>
+                            <label style="font-size:0.85rem; font-weight:600; margin-bottom:2px;">「數量」直欄：</label>
+                            <select id="colSelectCount" class="form-control"></select>
+                        </div>
+                        <div>
+                            <label style="font-size:0.85rem; font-weight:600; margin-bottom:2px;">篩選規則：</label>
+                            <div style="display:flex; gap:4px;">
+                                <select id="filterTypeCount" class="form-control" style="padding:10px 4px; font-size:0.8rem;">
+                                    <option value="none">無</option>
+                                    <option value="include">僅選取</option>
+                                    <option value="exclude">排除</option>
+                                </select>
+                                <input type="text" id="filterValCount" class="form-control" placeholder="輸入值" style="padding:10px 6px;">
+                            </div>
+                        </div>
                     </div>
                 </div>
 
