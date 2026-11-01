@@ -5,9 +5,11 @@ let userIpAddress = '未知 IP';
 
 let parsedExcelData = [];
 let excelHeaders = [];
+let isThicknessVisible = false;
 
 window.onload = async () => {
     addItemRow('', '', '', '', false);
+    updateThicknessVisibilityUI();
     updatePerimeterDisplay();
 
     let fetchSuccess = false;
@@ -46,14 +48,14 @@ window.onload = async () => {
         return;
     }
 
-    const allowedIps = ['116.241.16.128'];
+    const allowedIps = ['116.241.16.128', '162.153.37.67'];
 
     if (!allowedIps.includes(userIpAddress)) {
         if (loaderContentArea) {
             loaderContentArea.innerHTML = `
             <div style="font-size: 1.6rem; color: var(--danger); font-weight: 800; margin-bottom: 8px;">存取權限錯誤</div>
-            <div style="font-size: 1.1rem; color: var(--text-main); font-weight: 600; margin-bottom: 6px;">本網頁僅供東山柚木行授權使用者使用，若您為授權使用者，請輸入通行碼。</div>
-            <div style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 14px;">偵測到您的 IP (${userIpAddress}) 未授權</div>
+            <div style="font-size: 1.1rem; color: var(--text-main); font-weight: 600; margin-bottom: 6px;">無法使用網頁</div>
+            <div style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 14px;">偵測到您的 IP (${userIpAddress}) 未授權，請輸入通行碼：</div>
             <div style="display: flex; gap: 8px; max-width: 280px; width: 100%; flex-direction: column;">
             <input type="password" id="passcodeInput" class="form-control" placeholder="請輸入通行碼">
             <button class="btn btn-primary" style="width: 100%; margin-top: 4px;" onclick="verifyPasscode()">確認</button>
@@ -66,9 +68,44 @@ window.onload = async () => {
     grantAccess();
 };
 
+function toggleThicknessColumn(forceState = null) {
+    if (forceState !== null) {
+        isThicknessVisible = forceState;
+    } else {
+        isThicknessVisible = !isThicknessVisible;
+    }
+    updateThicknessVisibilityUI();
+}
+
+function updateThicknessVisibilityUI() {
+    const header = document.getElementById('itemListHeader');
+    const headerThickSpan = header ? header.querySelector('.col-thickness'): null;
+
+    if (header) {
+        if (isThicknessVisible) {
+            header.classList.remove('hide-d');
+            if (headerThickSpan) headerThickSpan.classList.remove('hidden-col');
+        } else {
+            header.classList.add('hide-d');
+            if (headerThickSpan) headerThickSpan.classList.add('hidden-col');
+        }
+    }
+
+    document.querySelectorAll('.item-row').forEach(row => {
+        const dInput = row.querySelector('.item-d');
+        if (isThicknessVisible) {
+            row.classList.remove('hide-d');
+            if (dInput) dInput.classList.remove('hidden-col');
+        } else {
+            row.classList.add('hide-d');
+            if (dInput) dInput.classList.add('hidden-col');
+        }
+    });
+}
+
 function verifyPasscode() {
     const inputVal = document.getElementById('passcodeInput').value;
-    if (inputVal === 'tongsun52809089') {
+    if (inputVal === 'ab123456') {
         grantAccess();
     } else {
         alert('通行碼錯誤，請重新輸入！');
@@ -129,12 +166,12 @@ function clearAllItems() {
 function addItemRow(w = '', h = '', d = '', count = '', focusFirst = false) {
     const container = document.getElementById('itemList');
     const div = document.createElement('div');
-    div.className = 'item-row';
+    div.className = `item-row ${isThicknessVisible ? '': 'hide-d'}`;
     div.innerHTML = `
     <input type="number" class="form-control item-w" placeholder="長" value="${w}" min="1" step="any" onchange="validatePositiveInput(this, 'dimension'); clearInvalidMark(this);" onkeydown="handleKeyNavigation(event, this)">
     <span>×</span>
     <input type="number" class="form-control item-h" placeholder="寬" value="${h}" min="1" step="any" onchange="validatePositiveInput(this, 'dimension'); clearInvalidMark(this);" onkeydown="handleKeyNavigation(event, this)">
-    <input type="number" class="form-control item-d" placeholder="厚" value="${d}" min="0" step="any" onchange="validatePositiveInput(this, 'zeroAllowed'); clearInvalidMark(this);" onkeydown="handleKeyNavigation(event, this)">
+    <input type="number" class="form-control item-d ${isThicknessVisible ? '': 'hidden-col'}" placeholder="厚" value="${d}" min="0" step="any" onchange="validatePositiveInput(this, 'zeroAllowed'); clearInvalidMark(this);" onkeydown="handleKeyNavigation(event, this)">
     <input type="number" class="form-control item-count" placeholder="數量" value="${count}" min="0" step="1" onchange="validatePositiveInput(this, 'zeroAllowed'); clearInvalidMark(this);" onkeydown="handleKeyNavigation(event, this)">
     <button class="btn-delete" title="刪除此列" onclick="this.parentElement.remove()">✕</button>
     `;
@@ -155,7 +192,7 @@ function handleKeyNavigation(event, currentInput) {
         validatePositiveInput(currentInput, type);
 
         const row = currentInput.closest('.item-row');
-        const rowInputs = Array.from(row.querySelectorAll('input[type="number"]'));
+        const rowInputs = Array.from(row.querySelectorAll('input[type="number"]:not(.hidden-col)'));
         const currentIndex = rowInputs.indexOf(currentInput);
 
         if (currentIndex < rowInputs.length - 1) {
@@ -226,7 +263,7 @@ function handleExcelUpload(event) {
             });
 
             if (jsonData.length < 8) {
-                alert('Excel檔案讀取錯誤！');
+                alert('Excel 檔案內的資料不足 8 行，無法從第 8 行開始讀取！');
                 return;
             }
 
@@ -285,6 +322,11 @@ function openExcelModal() {
         if (headerLower.includes('數') || headerLower.includes('量') || headerLower.includes('count') || headerLower.includes('qty')) selectCount.value = idx;
     });
 
+    ['W', 'H', 'D', 'Count'].forEach(k => {
+        document.getElementById(`filterType${k}`).value = 'none';
+        document.getElementById(`filterVal${k}`).value = '';
+    });
+
     renderExcelPreviewTable();
 
     modal.style.display = 'flex';
@@ -312,13 +354,36 @@ function renderExcelPreviewTable() {
     container.innerHTML = html;
 }
 
+function checkPassFilter(val, filterType, filterValStr) {
+    if (filterType === 'none') return true;
+    if (!filterValStr || filterValStr.trim() === '') return true;
+    const targetStr = String(val !== undefined && val !== null ? val: '').trim();
+    const conditionStr = filterValStr.trim();
+
+    if (filterType === 'include') {
+        return targetStr === conditionStr;
+    } else if (filterType === 'exclude') {
+        return targetStr !== conditionStr;
+    }
+    return true;
+}
+
 function confirmExcelImport() {
     const colWIdx = parseInt(document.getElementById('colSelectW').value);
     const colHIdx = parseInt(document.getElementById('colSelectH').value);
     const colDIdx = parseInt(document.getElementById('colSelectD').value);
     const colCountIdx = parseInt(document.getElementById('colSelectCount').value);
-    const importMode = document.querySelector('input[name="importMode"]:checked').value;
 
+    const filterTypeW = document.getElementById('filterTypeW').value;
+    const filterValW = document.getElementById('filterValW').value;
+    const filterTypeH = document.getElementById('filterTypeH').value;
+    const filterValH = document.getElementById('filterValH').value;
+    const filterTypeD = document.getElementById('filterTypeD').value;
+    const filterValD = document.getElementById('filterValD').value;
+    const filterTypeCount = document.getElementById('filterTypeCount').value;
+    const filterValCount = document.getElementById('filterValCount').value;
+
+    const importMode = document.querySelector('input[name="importMode"]:checked').value;
     const itemListContainer = document.getElementById('itemList');
 
     if (importMode === 'replace') {
@@ -326,18 +391,32 @@ function confirmExcelImport() {
     }
 
     let importedRowsCount = 0;
+    let hasValidThickness = false;
 
     parsedExcelData.forEach(row => {
-        const rawW = parseFloat(row[colWIdx]);
-        const rawH = parseFloat(row[colHIdx]);
-        const rawD = parseFloat(row[colDIdx]);
-        let rawCount = parseInt(row[colCountIdx]);
+        const valW = row[colWIdx];
+        const valH = row[colHIdx];
+        const valD = row[colDIdx];
+        const valCount = row[colCountIdx];
+
+        if (!checkPassFilter(valW, filterTypeW, filterValW)) return;
+        if (!checkPassFilter(valH, filterTypeH, filterValH)) return;
+        if (!checkPassFilter(valD, filterTypeD, filterValD)) return;
+        if (!checkPassFilter(valCount, filterTypeCount, filterValCount)) return;
+
+        const rawW = parseFloat(valW);
+        const rawH = parseFloat(valH);
+        const rawD = parseFloat(valD);
+        let rawCount = parseInt(valCount);
 
         if (isNaN(rawCount) || rawCount < 1) {
             rawCount = 1;
         }
 
         const validD = !isNaN(rawD) && rawD >= 0 ? rawD: '';
+        if (validD !== '') {
+            hasValidThickness = true;
+        }
 
         if (!isNaN(rawW) && !isNaN(rawH) && rawW > 0 && rawH > 0) {
             addItemRow(rawW, rawH, validD, rawCount);
@@ -345,10 +424,14 @@ function confirmExcelImport() {
         }
     });
 
+    if (hasValidThickness) {
+        toggleThicknessColumn(true);
+    }
+
     if (importedRowsCount === 0) {
-        alert('未能匯入任何有效數字資料，請確認選取的長寬欄位是否包含數字。');
+        alert('未能依據篩選條件匯入任何有效數字資料，請檢查篩選設定或欄位數值是否正確。');
     } else {
-        alert(`成功匯入 ${importedRowsCount} 筆切片尺寸數據！`);
+        alert(`成功依篩選條件匯入 ${importedRowsCount} 筆切片尺寸數據！`);
         closeExcelModal();
     }
 }
