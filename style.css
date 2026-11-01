@@ -234,6 +234,11 @@ body {
     margin-bottom: 8px;
     padding: 0 4px;
     text-align: center;
+    transition: all 0.2s ease;
+}
+
+.item-list-header.hide-d {
+    grid-template-columns: 1fr 12px 1fr 1fr 36px;
 }
 
 .item-list {
@@ -255,12 +260,21 @@ body {
     grid-template-columns: 1fr 12px 1fr 1fr 1fr 36px;
     gap: 6px;
     align-items: center;
+    transition: all 0.2s ease;
+}
+
+.item-row.hide-d {
+    grid-template-columns: 1fr 12px 1fr 1fr 36px;
 }
 
 .item-row span {
     text-align: center;
     color: var(--text-muted);
     font-size: 0.85rem;
+}
+
+.hidden-col {
+    display: none !important;
 }
 
 .btn-delete {
@@ -609,6 +623,12 @@ canvas {
 
 .modal-notice-list li {
     list-style-type: disc;
+}
+
+/* 公告紅色字體樣式 */
+.modal-notice-list li.red {
+    color: var(--notice-red);
+    font-weight: 700;
 }
 
 .modal-tip {
