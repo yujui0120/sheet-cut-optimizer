@@ -20,13 +20,16 @@
                 正在進行設備權限檢查...
             </p>
             <p>
-                若載入時間過長，請開啟無痕模式再試一次。
+                若載入時間過長，請開啟無痕模式或更換瀏覽器後再試一次。
             </p>
         </div>
     </div>
 
-    <header class="header">
-        <h1>木板最大利用與裁切計算器</h1>
+    <header class="header" style="flex-direction: column; gap: 8px; padding: 18px 24px;">
+        <h1 style="margin: 0;">木板最大利用與裁切計算器</h1>
+        <div>
+            <button class="btn btn-sm btn-outline" style="padding: 2px 12px; font-size: 0.8rem;" onclick="openNoticeModal()">查看公告</button>
+        </div>
     </header>
 
     <div class="main-layout">
@@ -86,8 +89,11 @@
                     <span class="step-badge">2</span>
                     <h2>切片需求清單</h2>
                     <div class="header-actions">
-                        <button class="btn btn-sm btn-outline" onclick="toggleThicknessColumn()" title="顯示或隱藏厚度欄位">
-                            👁️ 厚度
+                        <button id="downloadDataBtn" class="btn btn-sm btn-outline" onclick="downloadDataExcel()" title="下載目前輸入的參數與需求數據">
+                            📥 下載數據
+                        </button>
+                        <button id="toggleThicknessBtn" class="btn btn-sm btn-outline" onclick="toggleThicknessColumn()" title="顯示或隱藏厚度欄位">
+                            👁️ 顯示厚度
                         </button>
                         <button class="btn btn-sm btn-outline btn-danger-outline" onclick="clearAllItems()" title="清除所有切片需求">
                             🗑️ 清除
@@ -177,6 +183,14 @@
             </section>
         </div>
 
+        <div class="footer-info-card card-panel" style="flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 18px 22px; gap: 10px;">
+            <div style="font-size: 0.88rem; color: var(--text-muted); font-weight: 600; line-height: 1.6;">
+                本網頁為東山柚木行所屬<br>
+                網頁維護：李育睿
+            </div>
+            <button class="btn btn-sm btn-outline" onclick="openContactModal()">聯絡資訊</button>
+        </div>
+
     </div>
 
     <div id="noticeModal" class="modal-backdrop" style="display: none;">
@@ -198,6 +212,8 @@
                         <li>Excel匯入功能支援欄位條件篩選</li>
                         <li class="red">(11/1追加) Excel匯入新增篩選功能</li>
                         <li class="red">(11/1追加) 厚度欄位可依需求顯示/隱藏</li>
+                        <li class="red">(11/1追加) 數據下載功能</li>
+                        <li class="red">(11/1追加) 新增問題回報表單</li>
                     </ul>
                 </div>
 
@@ -214,7 +230,30 @@
 
             </div>
             <div class="modal-footer">
-                <button class="btn btn-primary" style="width: auto; margin-top: 0;" onclick="closeNoticeModal()">我知道了</button>
+                <button class="btn btn-primary" style="width: auto; margin-top: 0;" onclick="closeNoticeModal()">關閉</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="contactModal" class="modal-backdrop" style="display: none;">
+        <div class="modal-card" style="max-width: 480px;">
+            <div class="modal-header">
+                <h3>📞 聯絡資訊</h3>
+            </div>
+            <div class="modal-body">
+                <div style="display: flex; flex-direction: column; gap: 16px; font-size: 0.92rem; color: var(--text-main);">
+                    <div>
+                        <span style="font-weight: 700; color: var(--text-main); display: block; margin-bottom: 4px;">電子信箱：</span>
+                        <a href="mailto:amigo20110120@gmail.com" style="color: var(--primary); text-decoration: underline; font-weight: 600;">amigo20110120@gmail.com</a>
+                    </div>
+                    <div>
+                        <span style="font-weight: 700; color: var(--text-main); display: block; margin-bottom: 4px;">問題回報表單：</span>
+                        <a href="https://forms.gle/Kj6CUgjSTC9fnn3X8" target="_blank" style="color: var(--primary); text-decoration: underline; font-weight: 600;">https://forms.gle/Kj6CUgjSTC9fnn3X8</a>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" style="width: auto; margin-top: 0;" onclick="closeContactModal()">關閉</button>
             </div>
         </div>
     </div>
@@ -227,7 +266,7 @@
             </div>
             <div class="modal-body">
                 <p class="modal-tip">
-                    請選擇 Excel 欄位對應與篩選條件（有選擇規則且輸入條件才會套用）：
+                    請選擇 Excel 欄位對應與篩選條件：
                 </p>
 
                 <div class="field-mapping-grid">
