@@ -101,6 +101,11 @@ function updateThicknessVisibilityUI() {
             if (dInput) dInput.classList.add('hidden-col');
         }
     });
+
+    const toggleBtn = document.getElementById('toggleThicknessBtn');
+    if (toggleBtn) {
+        toggleBtn.innerHTML = isThicknessVisible ? '👁️ 隱藏厚度': '👁️ 顯示厚度';
+    }
 }
 
 function verifyPasscode() {
@@ -130,8 +135,20 @@ function grantAccess() {
     }
 }
 
+function openNoticeModal() {
+    document.getElementById('noticeModal').style.display = 'flex';
+}
+
 function closeNoticeModal() {
     document.getElementById('noticeModal').style.display = 'none';
+}
+
+function openContactModal() {
+    document.getElementById('contactModal').style.display = 'flex';
+}
+
+function closeContactModal() {
+    document.getElementById('contactModal').style.display = 'none';
 }
 
 function validatePositiveInput(input, type = 'dimension') {
@@ -243,6 +260,53 @@ function updatePerimeterDisplay() {
     document.getElementById('statPerimeter').innerText = `${formattedPerimeter} ${unitText}`;
 }
 
+function downloadDataExcel() {
+    const unit = document.getElementById('unitSelect').value || 'mm';
+    const boardW = document.getElementById('boardW').value || '';
+    const boardH = document.getElementById('boardH').value || '';
+    const boardSizeStr = `${boardW}*${boardH}`;
+    const gap = document.getElementById('gap').value || '';
+    const allowRotationVal = document.getElementById('allowRotationSelect').value;
+    const allowRotation = allowRotationVal === 'true' ? '是': (allowRotationVal === 'false' ? '否': '');
+    const cutMethodVal = document.getElementById('cutMethodSelect').value;
+    const cutMethod = cutMethodVal === 'cnc' ? 'CNC裁切': (cutMethodVal === 'saw' ? '裁板機裁切': '');
+
+    const excelRows = [
+        [`單位：${unit}`, `底板長*寬：${boardSizeStr}`, `間距：${gap}`, `是否允許旋轉：${allowRotation}`, `裁切方式：${cutMethod}`],
+        ['', '', '', '', ''],
+        ['長', '寬', '厚', '數量', '']
+    ];
+
+    const rows = document.querySelectorAll('.item-row');
+    rows.forEach(row => {
+        const w = row.querySelector('.item-w').value;
+        const h = row.querySelector('.item-h').value;
+        const d = row.querySelector('.item-d').value;
+        const count = row.querySelector('.item-count').value;
+
+        if (w !== '' || h !== '' || d !== '' || count !== '') {
+            excelRows.push([
+                w !== '' ? parseFloat(w): '',
+                h !== '' ? parseFloat(h): '',
+                d !== '' ? parseFloat(d): '',
+                count !== '' ? parseInt(count): '',
+                ''
+            ]);
+        }
+    });
+
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const timeStr = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+    const fileName = `木板最大利用與裁切計算器數據_${timeStr}.xlsx`;
+
+    const worksheet = XLSX.utils.aoa_to_sheet(excelRows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "裁切需求清單");
+
+    XLSX.writeFile(workbook, fileName);
+}
+
 function handleExcelUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -338,7 +402,14 @@ function closeExcelModal() {
 
 function renderExcelPreviewTable() {
     const container = document.getElementById('excelPreviewTableContainer');
-    let html = '<table class="preview-table"><tbody>';
+
+    let html = '<table class="preview-table"><thead><tr>';
+    excelHeaders.forEach((_, colIdx) => {
+        const colNames = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
+        const numStr = colIdx < 10 ? colNames[colIdx]: (colIdx + 1);
+        html += `<th style="background:#e2e8f0; font-weight:700; text-align:center; padding:6px 10px; border:1px solid var(--border); font-size:0.8rem; position:sticky; top:0; z-index:1;">第${numStr}欄</th>`;
+    });
+    html += '</tr></thead><tbody>';
 
     const previewRows = parsedExcelData.slice(0, 6);
     previewRows.forEach(row => {
