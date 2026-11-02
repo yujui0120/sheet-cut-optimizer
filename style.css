@@ -625,7 +625,6 @@ canvas {
     list-style-type: disc;
 }
 
-/* 公告紅色字體樣式 */
 .modal-notice-list li.red {
     color: var(--notice-red);
     font-weight: 700;
