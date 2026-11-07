@@ -1222,3 +1222,16 @@ window.exportToPDF = function() {
 function drawSheetTypeToCanvasCustom(canvas, boardW, boardH, placedItems, scale) {
     drawSheetToCanvas(canvas, boardW, boardH, placedItems, scale);
 }
+
+window.toggleNoticeSection = function(headerElem) {
+    const section = headerElem.closest('.notice-section');
+    const list = section.querySelector('.modal-notice-list');
+    
+    if (section.classList.contains('active')) {
+        section.classList.remove('active');
+        list.style.display = 'none';
+    } else {
+        section.classList.add('active');
+        list.style.display = 'block';
+    }
+};
