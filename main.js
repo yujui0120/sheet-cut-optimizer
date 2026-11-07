@@ -126,6 +126,12 @@ function grantAccess() {
 window.openGuideModal = function() {
     const modal = document.getElementById('guideModal');
     if (modal) {
+        modal.querySelectorAll('.notice-section').forEach(section => {
+            section.classList.remove('active');
+            const list = section.querySelector('.modal-notice-list');
+            if (list) list.style.display = 'none';
+        });
+
         modal.style.display = 'flex';
         setTimeout(() => { modal.classList.add('show'); }, 10);
     }
@@ -141,12 +147,20 @@ window.closeGuideModal = function() {
 
 window.toggleNoticeSection = function(headerElem) {
     const section = headerElem.closest('.notice-section');
+    const modalBody = section.closest('.modal-body');
     const list = section.querySelector('.modal-notice-list');
     
-    if (section.classList.contains('active')) {
-        section.classList.remove('active');
-        list.style.display = 'none';
-    } else {
+    const isActive = section.classList.contains('active');
+
+    if (section.closest('#guideModal')) {
+        modalBody.querySelectorAll('.notice-section').forEach(s => {
+            s.classList.remove('active');
+            const l = s.querySelector('.modal-notice-list');
+            if (l) l.style.display = 'none';
+        });
+    }
+
+    if (!isActive) {
         section.classList.add('active');
         list.style.display = 'block';
     }
