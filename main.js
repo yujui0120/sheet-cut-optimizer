@@ -164,11 +164,19 @@ window.closeNoticeModal = function() {
 };
 
 window.openContactModal = function() {
-    document.getElementById('contactModal').style.display = 'flex';
+    const modal = document.getElementById('contactModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        setTimeout(() => { modal.classList.add('show'); }, 10);
+    }
 };
 
 window.closeContactModal = function() {
-    document.getElementById('contactModal').style.display = 'none';
+    const modal = document.getElementById('contactModal');
+    if (modal) {
+        modal.classList.remove('show');
+        setTimeout(() => { modal.style.display = 'none'; }, 300);
+    }
 };
 
 function saveDraftToLocalStorage() {
