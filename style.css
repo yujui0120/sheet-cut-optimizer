@@ -840,3 +840,18 @@ canvas {
     border-color: var(--primary) !important;
     box-shadow: 0 2px 6px rgba(30, 64, 175, 0.3);
 }
+
+.notice-topic-title {
+    cursor: pointer;
+    user-select: none;
+}
+
+.collapse-icon {
+    font-size: 0.75rem;
+    transition: transform 0.2s ease;
+    margin-left: auto;
+}
+
+.notice-section.active .collapse-icon {
+    transform: rotate(180deg);
+}
