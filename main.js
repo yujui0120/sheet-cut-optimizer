@@ -1,17 +1,5 @@
-let currentUnit = '';
-let allSheetsResults = [];
-let lastTotalPerimeter = 0;
-let userIpAddress = '未知 IP';
-
-let parsedExcelData = [];
-let excelHeaders = [];
-let isThicknessVisible = false;
-let hasCalculated = false;
-
-let isDragMode = false;
-let currentActiveSheetIndex = 0;
-let draggedItemInfo = null;
-let globalDimColorMap = {};
+import { state, ALLOWED_IPS, PASSCODE, COLORS } from './config.js';
+import { isOverlapping, splitFreeRectSaw } from './optimizer.js';
 
 window.onload = async () => {
     let fetchSuccess = false;
@@ -21,7 +9,7 @@ window.onload = async () => {
         const response = await fetch('https://api.ipify.org?format=json');
         const data = await response.json();
         if (data && data.ip) {
-            userIpAddress = data.ip;
+            state.userIpAddress = data.ip;
             fetchSuccess = true;
         }
     } catch (error1) {
@@ -29,7 +17,7 @@ window.onload = async () => {
             const response2 = await fetch('https://ipwho.is/');
             const data2 = await response2.json();
             if (data2 && data2.ip) {
-                userIpAddress = data2.ip;
+                state.userIpAddress = data2.ip;
                 fetchSuccess = true;
             }
         } catch (error2) {}
@@ -50,14 +38,12 @@ window.onload = async () => {
         return;
     }
 
-    const allowedIps = ['116.241.16.128', '162.153.37.67'];
-
-    if (!allowedIps.includes(userIpAddress)) {
+    if (!ALLOWED_IPS.includes(state.userIpAddress)) {
         if (loaderContentArea) {
             loaderContentArea.innerHTML = `
             <div style="font-size: 1.6rem; color: var(--danger); font-weight: 800; margin-bottom: 8px;">存取權限錯誤</div>
             <div style="font-size: 1.1rem; color: var(--text-main); font-weight: 600; margin-bottom: 6px;">無法使用網頁</div>
-            <div style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 14px;">偵測到您的 IP (${userIpAddress}) 未授權，請輸入通行碼：</div>
+            <div style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 14px;">偵測到您的 IP (${state.userIpAddress}) 未授權，請輸入通行碼：</div>
             <div style="display: flex; gap: 8px; max-width: 280px; width: 100%; flex-direction: column;">
             <input type="password" id="passcodeInput" class="form-control" placeholder="請輸入通行碼">
             <button class="btn btn-primary" style="width: 100%; margin-top: 4px;" onclick="verifyPasscode()">確認</button>
@@ -70,22 +56,50 @@ window.onload = async () => {
     grantAccess();
 };
 
-function toggleThicknessColumn(forceState = null) {
-    if (forceState !== null) {
-        isThicknessVisible = forceState;
+window.verifyPasscode = function() {
+    const inputVal = document.getElementById('passcodeInput').value;
+    if (inputVal === PASSCODE) {
+        grantAccess();
     } else {
-        isThicknessVisible = !isThicknessVisible;
+        alert('通行碼錯誤，請重新輸入！');
+    }
+};
+
+function grantAccess() {
+    const loader = document.getElementById('initialLoader');
+    if (loader) {
+        loader.style.opacity = '0';
+        setTimeout(() => {
+            loader.style.display = 'none';
+            window.addItemRow('', '', '', '', false);
+            updateThicknessVisibilityUI();
+            updatePerimeterDisplay();
+            openNoticeModal();
+        }, 300);
+    } else {
+        window.addItemRow('', '', '', '', false);
+        updateThicknessVisibilityUI();
+        updatePerimeterDisplay();
+        openNoticeModal();
+    }
+}
+
+window.toggleThicknessColumn = function(forceState = null) {
+    if (forceState !== null) {
+        state.isThicknessVisible = forceState;
+    } else {
+        state.isThicknessVisible = !state.isThicknessVisible;
     }
     updateThicknessVisibilityUI();
     saveDraftToLocalStorage();
-}
+};
 
 function updateThicknessVisibilityUI() {
     const header = document.getElementById('itemListHeader');
-    const headerThickSpan = header ? header.querySelector('.col-thickness'): null;
+    const headerThickSpan = header ? header.querySelector('.col-thickness') : null;
 
     if (header) {
-        if (isThicknessVisible) {
+        if (state.isThicknessVisible) {
             header.classList.remove('hide-d');
             if (headerThickSpan) headerThickSpan.classList.remove('hidden-col');
         } else {
@@ -96,7 +110,7 @@ function updateThicknessVisibilityUI() {
 
     document.querySelectorAll('.item-row').forEach(row => {
         const dInput = row.querySelector('.item-d');
-        if (isThicknessVisible) {
+        if (state.isThicknessVisible) {
             row.classList.remove('hide-d');
             if (dInput) dInput.classList.remove('hidden-col');
         } else {
@@ -107,49 +121,19 @@ function updateThicknessVisibilityUI() {
 
     const toggleBtn = document.getElementById('toggleThicknessBtn');
     if (toggleBtn) {
-        toggleBtn.innerHTML = isThicknessVisible ? '👁️ 隱藏厚度': '👁️ 顯示厚度';
+        toggleBtn.innerHTML = state.isThicknessVisible ? '👁️ 隱藏厚度' : '👁️ 顯示厚度';
     }
 }
 
-function verifyPasscode() {
-    const inputVal = document.getElementById('passcodeInput').value;
-    if (inputVal === 'ab123456') {
-        grantAccess();
-    } else {
-        alert('通行碼錯誤，請重新輸入！');
-    }
-}
-
-function grantAccess() {
-    const loader = document.getElementById('initialLoader');
-    if (loader) {
-        loader.style.opacity = '0';
-        setTimeout(() => {
-            loader.style.display = 'none';
-            addItemRow('', '', '', '', false);
-            updateThicknessVisibilityUI();
-            updatePerimeterDisplay();
-            openNoticeModal();
-        }, 300);
-    } else {
-        addItemRow('', '', '', '', false);
-        updateThicknessVisibilityUI();
-        updatePerimeterDisplay();
-        openNoticeModal();
-    }
-}
-
-function openNoticeModal() {
+window.openNoticeModal = function() {
     const modal = document.getElementById('noticeModal');
     if (modal) {
         modal.style.display = 'flex';
-        setTimeout(() => {
-            modal.classList.add('show');
-        }, 10);
+        setTimeout(() => { modal.classList.add('show'); }, 10);
     }
-}
+};
 
-function closeNoticeModal() {
+window.closeNoticeModal = function() {
     const noticeModal = document.getElementById('noticeModal');
     if (noticeModal) {
         noticeModal.classList.remove('show');
@@ -158,18 +142,18 @@ function closeNoticeModal() {
             checkAndRestoreDraft();
         }, 300);
     }
-}
+};
 
-function openContactModal() {
+window.openContactModal = function() {
     document.getElementById('contactModal').style.display = 'flex';
-}
+};
 
-function closeContactModal() {
+window.closeContactModal = function() {
     document.getElementById('contactModal').style.display = 'none';
-}
+};
 
 function saveDraftToLocalStorage() {
-    if (hasCalculated) return;
+    if (state.hasCalculated) return;
 
     const draftData = {
         unitSelect: document.getElementById('unitSelect').value,
@@ -178,7 +162,7 @@ function saveDraftToLocalStorage() {
         gap: document.getElementById('gap').value,
         allowRotationSelect: document.getElementById('allowRotationSelect').value,
         cutMethodSelect: document.getElementById('cutMethodSelect').value,
-        isThicknessVisible: isThicknessVisible,
+        isThicknessVisible: state.isThicknessVisible,
         items: []
     };
 
@@ -230,18 +214,18 @@ function checkAndRestoreDraft() {
             if (data.allowRotationSelect) document.getElementById('allowRotationSelect').value = data.allowRotationSelect;
             if (data.cutMethodSelect) document.getElementById('cutMethodSelect').value = data.cutMethodSelect;
 
-            if (data.unitSelect) currentUnit = data.unitSelect;
-            isThicknessVisible = !!data.isThicknessVisible;
+            if (data.unitSelect) state.currentUnit = data.unitSelect;
+            state.isThicknessVisible = !!data.isThicknessVisible;
             updateThicknessVisibilityUI();
 
             const container = document.getElementById('itemList');
             container.innerHTML = '';
             if (data.items && data.items.length > 0) {
                 data.items.forEach(it => {
-                    addItemRow(it.w, it.h, it.d, it.count, false);
+                    window.addItemRow(it.w, it.h, it.d, it.count, false);
                 });
             } else {
-                addItemRow('', '', '', '', false);
+                window.addItemRow('', '', '', '', false);
             }
             updatePerimeterDisplay();
         } else {
@@ -252,51 +236,44 @@ function checkAndRestoreDraft() {
     }
 }
 
-function validatePositiveInput(input, type = 'dimension') {
+window.validatePositiveInput = function(input, type = 'dimension') {
     if (input.value === '') return;
 
     const val = parseFloat(input.value);
     if (type === 'zeroAllowed') {
-        if (isNaN(val) || val < 0) {
-            input.value = 0;
-        }
+        if (isNaN(val) || val < 0) input.value = 0;
     } else {
-        if (isNaN(val) || val <= 0) {
-            input.value = 1;
-        }
+        if (isNaN(val) || val <= 0) input.value = 1;
     }
     saveDraftToLocalStorage();
-}
+};
 
-function clearInvalidMark(element) {
-    if (element) {
-        element.classList.remove('is-invalid');
-    }
-}
+window.clearInvalidMark = function(element) {
+    if (element) element.classList.remove('is-invalid');
+};
 
-function clearAllItems() {
+window.clearAllItems = function() {
     if (confirm('確定要清除所有切片需求項目嗎？')) {
         const container = document.getElementById('itemList');
         container.innerHTML = '';
-        addItemRow('', '', '', '', false);
+        window.addItemRow('', '', '', '', false);
         saveDraftToLocalStorage();
     }
-}
+};
 
-function addItemRow(w = '', h = '', d = '', count = '', focusFirst = false) {
+window.addItemRow = function(w = '', h = '', d = '', count = '', focusFirst = false) {
     const container = document.getElementById('itemList');
     const div = document.createElement('div');
-    div.className = `item-row ${isThicknessVisible ? '': 'hide-d'}`;
+    div.className = `item-row ${state.isThicknessVisible ? '' : 'hide-d'}`;
     div.innerHTML = `
     <input type="number" class="form-control item-w" placeholder="長" value="${w}" min="1" step="any" onchange="validatePositiveInput(this, 'dimension'); clearInvalidMark(this);" onkeydown="handleKeyNavigation(event, this)">
     <button type="button" class="btn-swap" title="交換長寬" onclick="swapRowDimensions(this)">⮂</button>
     <input type="number" class="form-control item-h" placeholder="寬" value="${h}" min="1" step="any" onchange="validatePositiveInput(this, 'dimension'); clearInvalidMark(this);" onkeydown="handleKeyNavigation(event, this)">
-    <input type="number" class="form-control item-d ${isThicknessVisible ? '': 'hidden-col'}" placeholder="厚" value="${d}" min="0" step="any" onchange="validatePositiveInput(this, 'zeroAllowed'); clearInvalidMark(this);" onkeydown="handleKeyNavigation(event, this)">
+    <input type="number" class="form-control item-d ${state.isThicknessVisible ? '' : 'hidden-col'}" placeholder="厚" value="${d}" min="0" step="any" onchange="validatePositiveInput(this, 'zeroAllowed'); clearInvalidMark(this);" onkeydown="handleKeyNavigation(event, this)">
     <input type="number" class="form-control item-count" placeholder="數量" value="${count}" min="0" step="1" onchange="validatePositiveInput(this, 'zeroAllowed'); clearInvalidMark(this);" onkeydown="handleKeyNavigation(event, this)">
     <button class="btn-delete" title="刪除此列" onclick="this.parentElement.remove(); saveDraftToLocalStorage();">✕</button>
     `;
     container.appendChild(div);
-
     container.scrollTop = container.scrollHeight;
 
     if (focusFirst) {
@@ -304,36 +281,32 @@ function addItemRow(w = '', h = '', d = '', count = '', focusFirst = false) {
         if (inputW) inputW.focus();
     }
     saveDraftToLocalStorage();
-}
+};
 
-function swapRowDimensions(button) {
+window.swapRowDimensions = function(button) {
     const row = button.closest('.item-row');
     const wInput = row.querySelector('.item-w');
     const hInput = row.querySelector('.item-h');
-
     const temp = wInput.value;
     wInput.value = hInput.value;
     hInput.value = temp;
-
     saveDraftToLocalStorage();
-}
+};
 
-function swapBoardDimensions() {
+window.swapBoardDimensions = function() {
     const wInput = document.getElementById('boardW');
     const hInput = document.getElementById('boardH');
-
     const temp = wInput.value;
     wInput.value = hInput.value;
     hInput.value = temp;
-
     saveDraftToLocalStorage();
-}
+};
 
-function handleKeyNavigation(event, currentInput) {
+window.handleKeyNavigation = function(event, currentInput) {
     if (event.key === 'Enter') {
         event.preventDefault();
-        const type = currentInput.classList.contains('item-count') ? 'zeroAllowed': (currentInput.classList.contains('item-d') ? 'zeroAllowed': 'dimension');
-        validatePositiveInput(currentInput, type);
+        const type = currentInput.classList.contains('item-count') ? 'zeroAllowed' : (currentInput.classList.contains('item-d') ? 'zeroAllowed' : 'dimension');
+        window.validatePositiveInput(currentInput, type);
 
         const row = currentInput.closest('.item-row');
         const rowInputs = Array.from(row.querySelectorAll('input[type="number"]:not(.hidden-col)'));
@@ -347,7 +320,7 @@ function handleKeyNavigation(event, currentInput) {
             const currentRowIndex = allRows.indexOf(row);
 
             if (currentRowIndex === allRows.length - 1) {
-                addItemRow('', '', '', '', true);
+                window.addItemRow('', '', '', '', true);
             } else {
                 const nextRowFirstInput = allRows[currentRowIndex + 1].querySelector('.item-w');
                 if (nextRowFirstInput) {
@@ -358,20 +331,20 @@ function handleKeyNavigation(event, currentInput) {
         }
         saveDraftToLocalStorage();
     }
-}
+};
 
-function handleUnitChange(newUnit) {
+window.handleUnitChange = function(newUnit) {
     if (!newUnit) return;
 
-    if (!currentUnit) {
-        currentUnit = newUnit;
+    if (!state.currentUnit) {
+        state.currentUnit = newUnit;
         saveDraftToLocalStorage();
         return;
     }
 
-    if (newUnit === currentUnit) return;
+    if (newUnit === state.currentUnit) return;
 
-    const factor = newUnit === 'cm' ? 0.1: 10;
+    const factor = newUnit === 'cm' ? 0.1 : 10;
 
     ['boardW', 'boardH', 'gap'].forEach(id => {
         const input = document.getElementById(id);
@@ -382,31 +355,31 @@ function handleUnitChange(newUnit) {
         if (input.value) input.value = (parseFloat(input.value) * factor).toFixed(2).replace(/\.00$/, '');
     });
 
-    if (lastTotalPerimeter > 0) {
-        lastTotalPerimeter = lastTotalPerimeter * factor;
+    if (state.lastTotalPerimeter > 0) {
+        state.lastTotalPerimeter = state.lastTotalPerimeter * factor;
     }
 
-    currentUnit = newUnit;
+    state.currentUnit = newUnit;
     updatePerimeterDisplay();
     saveDraftToLocalStorage();
-}
+};
 
 function updatePerimeterDisplay() {
-    const formattedPerimeter = lastTotalPerimeter.toFixed(1).replace(/\.0$/, '');
-    const unitText = currentUnit ? currentUnit: 'mm';
+    const formattedPerimeter = state.lastTotalPerimeter.toFixed(1).replace(/\.0$/, '');
+    const unitText = state.currentUnit ? state.currentUnit : 'mm';
     document.getElementById('statPerimeter').innerText = `${formattedPerimeter} ${unitText}`;
 }
 
-function downloadDataExcel() {
+window.downloadDataExcel = function() {
     const unit = document.getElementById('unitSelect').value || 'mm';
     const boardW = document.getElementById('boardW').value || '';
     const boardH = document.getElementById('boardH').value || '';
     const boardSizeStr = `${boardW}*${boardH}`;
     const gap = document.getElementById('gap').value || '';
     const allowRotationVal = document.getElementById('allowRotationSelect').value;
-    const allowRotation = allowRotationVal === 'true' ? '是': (allowRotationVal === 'false' ? '否': '');
+    const allowRotation = allowRotationVal === 'true' ? '是' : (allowRotationVal === 'false' ? '否' : '');
     const cutMethodVal = document.getElementById('cutMethodSelect').value;
-    const cutMethod = cutMethodVal === 'cnc' ? 'CNC裁切': (cutMethodVal === 'saw' ? '裁板機裁切': '');
+    const cutMethod = cutMethodVal === 'cnc' ? 'CNC裁切' : (cutMethodVal === 'saw' ? '裁板機裁切' : '');
 
     const excelRows = [
         [`單位：${unit}`, `底板長*寬：${boardSizeStr}`, `間距：${gap}`, `是否允許旋轉：${allowRotation}`, `裁切方式：${cutMethod}`],
@@ -423,10 +396,10 @@ function downloadDataExcel() {
 
         if (w !== '' || h !== '' || d !== '' || count !== '') {
             excelRows.push([
-                w !== '' ? parseFloat(w): '',
-                h !== '' ? parseFloat(h): '',
-                d !== '' ? parseFloat(d): '',
-                count !== '' ? parseInt(count): '',
+                w !== '' ? parseFloat(w) : '',
+                h !== '' ? parseFloat(h) : '',
+                d !== '' ? parseFloat(d) : '',
+                count !== '' ? parseInt(count) : '',
                 ''
             ]);
         }
@@ -440,11 +413,10 @@ function downloadDataExcel() {
     const worksheet = XLSX.utils.aoa_to_sheet(excelRows);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "裁切需求清單");
-
     XLSX.writeFile(workbook, fileName);
-}
+};
 
-function handleExcelUpload(event) {
+window.handleExcelUpload = function(event) {
     const file = event.target.files[0];
     if (!file) return;
 
@@ -452,16 +424,10 @@ function handleExcelUpload(event) {
     reader.onload = function(e) {
         try {
             const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, {
-                type: 'array'
-            });
-
+            const workbook = XLSX.read(data, { type: 'array' });
             const firstSheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[firstSheetName];
-
-            const jsonData = XLSX.utils.sheet_to_json(worksheet, {
-                header: 1
-            });
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
             if (jsonData.length < 8) {
                 alert('Excel 檔案內的資料不足 8 行，無法從第 8 行開始讀取！');
@@ -469,24 +435,20 @@ function handleExcelUpload(event) {
             }
 
             const maxCols = Math.max(...jsonData.slice(7).map(r => r.length));
-            excelHeaders = Array.from({
-                length: maxCols
-            }, (_, i) => {
+            state.excelHeaders = Array.from({ length: maxCols }, (_, i) => {
                 const headerVal = jsonData[7][i];
-                return (headerVal !== undefined && headerVal !== null) ? String(headerVal).trim(): `第 ${i + 1} 欄`;
+                return (headerVal !== undefined && headerVal !== null) ? String(headerVal).trim() : `第 ${i + 1} 欄`;
             });
 
-            parsedExcelData = jsonData.slice(7);
-
+            state.parsedExcelData = jsonData.slice(7);
             openExcelModal();
         } catch (err) {
             alert('解析 Excel 檔案失敗，請確認檔案格式是否正確。');
         }
     };
     reader.readAsArrayBuffer(file);
-
     event.target.value = '';
-}
+};
 
 function openExcelModal() {
     const modal = document.getElementById('excelModal');
@@ -497,7 +459,7 @@ function openExcelModal() {
 
     [selectW, selectH, selectD, selectCount].forEach(sel => sel.innerHTML = '');
 
-    excelHeaders.forEach((header, idx) => {
+    state.excelHeaders.forEach((header, idx) => {
         const optW = new Option(`${header} (欄 ${idx+1})`, idx);
         const optH = new Option(`${header} (欄 ${idx+1})`, idx);
         const optD = new Option(`${header} (欄 ${idx+1})`, idx);
@@ -509,12 +471,12 @@ function openExcelModal() {
         selectCount.add(optCount);
     });
 
-    if (excelHeaders.length >= 6) selectW.value = 5;
-    if (excelHeaders.length >= 7) selectH.value = 6;
-    if (excelHeaders.length >= 8) selectD.value = 7;
-    if (excelHeaders.length >= 10) selectCount.value = 9;
+    if (state.excelHeaders.length >= 6) selectW.value = 5;
+    if (state.excelHeaders.length >= 7) selectH.value = 6;
+    if (state.excelHeaders.length >= 8) selectD.value = 7;
+    if (state.excelHeaders.length >= 10) selectCount.value = 9;
 
-    excelHeaders.forEach((h, idx) => {
+    state.excelHeaders.forEach((h, idx) => {
         const headerLower = h.toLowerCase();
         if (headerLower.includes('長') || headerLower.includes('length') || headerLower.includes('w')) selectW.value = idx;
         if (headerLower.includes('寬') || headerLower.includes('width') || headerLower.includes('h')) selectH.value = idx;
@@ -528,35 +490,32 @@ function openExcelModal() {
     });
 
     renderExcelPreviewTable();
-
     modal.style.display = 'flex';
 }
 
-function closeExcelModal() {
+window.closeExcelModal = function() {
     document.getElementById('excelModal').style.display = 'none';
-}
+};
 
 function renderExcelPreviewTable() {
     const container = document.getElementById('excelPreviewTableContainer');
-
     let html = '<table class="preview-table"><thead><tr>';
-    excelHeaders.forEach((_, colIdx) => {
+    state.excelHeaders.forEach((_, colIdx) => {
         const colNames = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
-        const numStr = colIdx < 10 ? colNames[colIdx]: (colIdx + 1);
+        const numStr = colIdx < 10 ? colNames[colIdx] : (colIdx + 1);
         html += `<th style="background:#e2e8f0; font-weight:700; text-align:center; padding:6px 10px; border:1px solid var(--border); font-size:0.8rem; position:sticky; top:0; z-index:1;">第${numStr}欄</th>`;
     });
     html += '</tr></thead><tbody>';
 
-    const previewRows = parsedExcelData.slice(0, 6);
+    const previewRows = state.parsedExcelData.slice(0, 6);
     previewRows.forEach(row => {
         html += '<tr>';
-        excelHeaders.forEach((_, colIdx) => {
-            const val = row[colIdx] !== undefined ? row[colIdx]: '';
+        state.excelHeaders.forEach((_, colIdx) => {
+            const val = row[colIdx] !== undefined ? row[colIdx] : '';
             html += `<td>${val}</td>`;
         });
         html += '</tr>';
     });
-
     html += '</tbody></table>';
     container.innerHTML = html;
 }
@@ -564,18 +523,15 @@ function renderExcelPreviewTable() {
 function checkPassFilter(val, filterType, filterValStr) {
     if (filterType === 'none') return true;
     if (!filterValStr || filterValStr.trim() === '') return true;
-    const targetStr = String(val !== undefined && val !== null ? val: '').trim();
+    const targetStr = String(val !== undefined && val !== null ? val : '').trim();
     const conditionStr = filterValStr.trim();
 
-    if (filterType === 'include') {
-        return targetStr === conditionStr;
-    } else if (filterType === 'exclude') {
-        return targetStr !== conditionStr;
-    }
+    if (filterType === 'include') return targetStr === conditionStr;
+    if (filterType === 'exclude') return targetStr !== conditionStr;
     return true;
 }
 
-function confirmExcelImport() {
+window.confirmExcelImport = function() {
     const colWIdx = parseInt(document.getElementById('colSelectW').value);
     const colHIdx = parseInt(document.getElementById('colSelectH').value);
     const colDIdx = parseInt(document.getElementById('colSelectD').value);
@@ -593,14 +549,12 @@ function confirmExcelImport() {
     const importMode = document.querySelector('input[name="importMode"]:checked').value;
     const itemListContainer = document.getElementById('itemList');
 
-    if (importMode === 'replace') {
-        itemListContainer.innerHTML = '';
-    }
+    if (importMode === 'replace') itemListContainer.innerHTML = '';
 
     let importedRowsCount = 0;
     let hasValidThickness = false;
 
-    parsedExcelData.forEach(row => {
+    state.parsedExcelData.forEach(row => {
         const valW = row[colWIdx];
         const valH = row[colHIdx];
         const valD = row[colDIdx];
@@ -616,87 +570,29 @@ function confirmExcelImport() {
         const rawD = parseFloat(valD);
         let rawCount = parseInt(valCount);
 
-        if (isNaN(rawCount) || rawCount < 1) {
-            rawCount = 1;
-        }
+        if (isNaN(rawCount) || rawCount < 1) rawCount = 1;
 
-        const validD = !isNaN(rawD) && rawD >= 0 ? rawD: '';
-        if (validD !== '') {
-            hasValidThickness = true;
-        }
+        const validD = !isNaN(rawD) && rawD >= 0 ? rawD : '';
+        if (validD !== '') hasValidThickness = true;
 
         if (!isNaN(rawW) && !isNaN(rawH) && rawW > 0 && rawH > 0) {
-            addItemRow(rawW, rawH, validD, rawCount);
+            window.addItemRow(rawW, rawH, validD, rawCount);
             importedRowsCount++;
         }
     });
 
-    if (hasValidThickness) {
-        toggleThicknessColumn(true);
-    }
+    if (hasValidThickness) window.toggleThicknessColumn(true);
 
     if (importedRowsCount === 0) {
         alert('未能依據篩選條件匯入任何有效數字資料，請檢查篩選設定或欄位數值是否正確。');
     } else {
         alert(`成功依篩選條件匯入 ${importedRowsCount} 筆切片尺寸數據！`);
-        closeExcelModal();
+        window.closeExcelModal();
         saveDraftToLocalStorage();
     }
-}
+};
 
-function isOverlapping(placedItems, rectToCheck, ignoreIndex = -1, gap = 0) {
-    for (let i = 0; i < placedItems.length; i++) {
-        if (i === ignoreIndex) continue;
-        const placed = placedItems[i];
-
-        const r1Left = rectToCheck.x;
-        const r1Right = rectToCheck.x + rectToCheck.w;
-        const r1Top = rectToCheck.y;
-        const r1Bottom = rectToCheck.y + rectToCheck.h;
-
-        const r2Left = placed.x;
-        const r2Right = placed.x + placed.w;
-        const r2Top = placed.y;
-        const r2Bottom = placed.y + placed.h;
-
-        const overlapX = (r1Left < r2Right + gap) && (r1Right + gap > r2Left);
-        const overlapY = (r1Top < r2Bottom + gap) && (r1Bottom + gap > r2Top);
-
-        if (overlapX && overlapY) {
-            return true;
-        }
-    }
-    return false;
-}
-
-function splitFreeRectSaw(freeRects, freeRect, usedW, usedH, gap) {
-    let newFreeRects = [];
-    if (usedW + gap < freeRect.w) {
-        newFreeRects.push({
-            x: freeRect.x + usedW + gap,
-            y: freeRect.y,
-            w: freeRect.w - usedW - gap,
-            h: freeRect.h
-        });
-    }
-
-    if (usedH + gap < freeRect.h) {
-        newFreeRects.push({
-            x: freeRect.x,
-            y: freeRect.y + usedH + gap,
-            w: freeRect.w,
-            h: freeRect.h - usedH - gap
-        });
-    }
-
-    const idx = freeRects.indexOf(freeRect);
-    if (idx !== -1) {
-        freeRects.splice(idx, 1);
-    }
-    return freeRects.concat(newFreeRects);
-}
-
-function calculateLayout() {
+window.calculateLayout = function() {
     const calcBtn = document.getElementById('calcBtn');
     calcBtn.disabled = true;
     calcBtn.innerText = '計算中...';
@@ -709,7 +605,7 @@ function calculateLayout() {
             calcBtn.innerText = '開始計算';
         }
     }, 50);
-}
+};
 
 function executeCalculation() {
     document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
@@ -737,24 +633,15 @@ function executeCalculation() {
     const boardWInput = document.getElementById('boardW');
     const boardHInput = document.getElementById('boardH');
 
-    if (!boardWInput.value || parseFloat(boardWInput.value) <= 0) {
-        markInvalid(boardWInput);
-    } else {
-        validatePositiveInput(boardWInput, 'dimension');
-    }
+    if (!boardWInput.value || parseFloat(boardWInput.value) <= 0) markInvalid(boardWInput);
+    else window.validatePositiveInput(boardWInput, 'dimension');
 
-    if (!boardHInput.value || parseFloat(boardHInput.value) <= 0) {
-        markInvalid(boardHInput);
-    } else {
-        validatePositiveInput(boardHInput, 'dimension');
-    }
+    if (!boardHInput.value || parseFloat(boardHInput.value) <= 0) markInvalid(boardHInput);
+    else window.validatePositiveInput(boardHInput, 'dimension');
 
     const gapInput = document.getElementById('gap');
-    if (gapInput.value === '' || parseFloat(gapInput.value) < 0) {
-        markInvalid(gapInput);
-    } else {
-        validatePositiveInput(gapInput, 'zeroAllowed');
-    }
+    if (gapInput.value === '' || parseFloat(gapInput.value) < 0) markInvalid(gapInput);
+    else window.validatePositiveInput(gapInput, 'zeroAllowed');
 
     const rows = document.querySelectorAll('.item-row');
     rows.forEach(row => {
@@ -773,37 +660,23 @@ function executeCalculation() {
             return;
         }
 
-        if (wVal === '' || parseFloat(wVal) <= 0) {
-            markInvalid(wInput);
-        } else {
-            validatePositiveInput(wInput, 'dimension');
-        }
+        if (wVal === '' || parseFloat(wVal) <= 0) markInvalid(wInput);
+        else window.validatePositiveInput(wInput, 'dimension');
 
-        if (hVal === '' || parseFloat(hVal) <= 0) {
-            markInvalid(hInput);
-        } else {
-            validatePositiveInput(hInput, 'dimension');
-        }
+        if (hVal === '' || parseFloat(hVal) <= 0) markInvalid(hInput);
+        else window.validatePositiveInput(hInput, 'dimension');
 
-        if (dVal !== '' && parseFloat(dVal) < 0) {
-            markInvalid(dInput);
-        } else if (dVal !== '') {
-            validatePositiveInput(dInput, 'zeroAllowed');
-        }
+        if (dVal !== '' && parseFloat(dVal) < 0) markInvalid(dInput);
+        else if (dVal !== '') window.validatePositiveInput(dInput, 'zeroAllowed');
 
-        if (countVal === '' || parseFloat(countVal) < 0) {
-            markInvalid(countInput);
-        } else {
-            validatePositiveInput(countInput, 'zeroAllowed');
-        }
+        if (countVal === '' || parseFloat(countVal) < 0) markInvalid(countInput);
+        else window.validatePositiveInput(countInput, 'zeroAllowed');
     });
 
     const remainingRows = document.querySelectorAll('.item-row');
 
     if (!isValid || remainingRows.length === 0) {
-        if (remainingRows.length === 0) {
-            addItemRow('', '', '', '', false);
-        }
+        if (remainingRows.length === 0) window.addItemRow('', '', '', '', false);
         alert('請確認參數設定完整');
         if (firstInvalidElem) firstInvalidElem.focus();
         return;
@@ -835,9 +708,7 @@ function executeCalculation() {
             }
 
             for (let i = 0; i < count; i++) {
-                unplacedItems.push({
-                    id: `組${idx+1}-${i+1}`, w, h, area: w * h
-                });
+                unplacedItems.push({ id: `組${idx+1}-${i+1}`, w, h, area: w * h });
             }
         }
     });
@@ -849,19 +720,16 @@ function executeCalculation() {
 
     unplacedItems.sort((a, b) => b.area - a.area);
 
-    globalDimColorMap = {};
-    const colors = ['#1e40af', '#16a34a', '#d97706', '#dc2626', '#4f46e5', '#0891b2', '#9333ea', '#059669', '#db2777', '#ca8a04', '#0d9488', '#7c3aed'];
+    state.globalDimColorMap = {};
     let colorIndex = 0;
 
-    allSheetsResults = [];
+    state.allSheetsResults = [];
     let totalPlacedAreaAllSheets = 0;
     let calculatedTotalPerimeter = 0;
 
     if (cutMethod === 'cnc') {
         while (unplacedItems.length > 0) {
-            let freeRects = [{
-                x: 0, y: 0, w: boardW, h: boardH
-            }];
+            let freeRects = [{ x: 0, y: 0, w: boardW, h: boardH }];
             let placedInThisSheet = [];
             let remainingItemsForNextSheet = [];
             let sheetPlacedArea = 0;
@@ -874,16 +742,12 @@ function executeCalculation() {
                     let rect = freeRects[i];
 
                     if (item.w <= rect.w && item.h <= rect.h) {
-                        bestFit = {
-                            rectIdx: i, x: rect.x, y: rect.y, w: item.w, h: item.h
-                        };
+                        bestFit = { rectIdx: i, x: rect.x, y: rect.y, w: item.w, h: item.h };
                         bestRotated = false;
                         break;
                     }
                     if (allowRotation && item.h <= rect.w && item.w <= rect.h) {
-                        bestFit = {
-                            rectIdx: i, x: rect.x, y: rect.y, w: item.h, h: item.w
-                        };
+                        bestFit = { rectIdx: i, x: rect.x, y: rect.y, w: item.h, h: item.w };
                         bestRotated = true;
                         break;
                     }
@@ -891,8 +755,8 @@ function executeCalculation() {
 
                 if (bestFit) {
                     const key = `${item.w}_${item.h}`;
-                    if (!globalDimColorMap[key]) {
-                        globalDimColorMap[key] = colors[colorIndex % colors.length];
+                    if (!state.globalDimColorMap[key]) {
+                        state.globalDimColorMap[key] = COLORS[colorIndex % COLORS.length];
                         colorIndex++;
                     }
 
@@ -931,7 +795,7 @@ function executeCalculation() {
             if (placedInThisSheet.length === 0) break;
 
             totalPlacedAreaAllSheets += sheetPlacedArea;
-            allSheetsResults.push({
+            state.allSheetsResults.push({
                 placedItems: placedInThisSheet,
                 usage: ((sheetPlacedArea / (boardW * boardH)) * 100).toFixed(1)
             });
@@ -940,9 +804,7 @@ function executeCalculation() {
         }
     } else {
         while (unplacedItems.length > 0) {
-            let freeRects = [{
-                x: 0, y: 0, w: boardW, h: boardH
-            }];
+            let freeRects = [{ x: 0, y: 0, w: boardW, h: boardH }];
             let placedInThisSheet = [];
             let sheetPlacedArea = 0;
 
@@ -956,23 +818,18 @@ function executeCalculation() {
                     if (
                         item.w <= freeRect.w &&
                         item.h <= freeRect.h &&
-                        !isOverlapping(placedInThisSheet, {
-                            x: freeRect.x, y: freeRect.y, w: item.w, h: item.h
-                        }, -1, gap)
+                        !isOverlapping(placedInThisSheet, { x: freeRect.x, y: freeRect.y, w: item.w, h: item.h }, -1, gap)
                     ) {
                         const key = `${item.w}_${item.h}`;
-                        if (!globalDimColorMap[key]) {
-                            globalDimColorMap[key] = colors[colorIndex % colors.length];
+                        if (!state.globalDimColorMap[key]) {
+                            state.globalDimColorMap[key] = COLORS[colorIndex % COLORS.length];
                             colorIndex++;
                         }
 
                         placedInThisSheet.push({
-                            x: freeRect.x,
-                            y: freeRect.y,
-                            w: item.w,
-                            h: item.h,
-                            origW: item.w,
-                            origH: item.h,
+                            x: freeRect.x, y: freeRect.y,
+                            w: item.w, h: item.h,
+                            origW: item.w, origH: item.h,
                             rotated: false
                         });
                         sheetPlacedArea += item.area;
@@ -986,23 +843,18 @@ function executeCalculation() {
                         if (
                             item.h <= freeRect.w &&
                             item.w <= freeRect.h &&
-                            !isOverlapping(placedInThisSheet, {
-                                x: freeRect.x, y: freeRect.y, w: item.h, h: item.w
-                            }, -1, gap)
+                            !isOverlapping(placedInThisSheet, { x: freeRect.x, y: freeRect.y, w: item.h, h: item.w }, -1, gap)
                         ) {
                             const key = `${item.w}_${item.h}`;
-                            if (!globalDimColorMap[key]) {
-                                globalDimColorMap[key] = colors[colorIndex % colors.length];
+                            if (!state.globalDimColorMap[key]) {
+                                state.globalDimColorMap[key] = COLORS[colorIndex % COLORS.length];
                                 colorIndex++;
                             }
 
                             placedInThisSheet.push({
-                                x: freeRect.x,
-                                y: freeRect.y,
-                                w: item.h,
-                                h: item.w,
-                                origW: item.w,
-                                origH: item.h,
+                                x: freeRect.x, y: freeRect.y,
+                                w: item.h, h: item.w,
+                                origW: item.w, origH: item.h,
                                 rotated: true
                             });
                             sheetPlacedArea += item.area;
@@ -1025,20 +877,20 @@ function executeCalculation() {
             if (placedInThisSheet.length === 0) break;
 
             totalPlacedAreaAllSheets += sheetPlacedArea;
-            allSheetsResults.push({
+            state.allSheetsResults.push({
                 placedItems: placedInThisSheet,
                 usage: ((sheetPlacedArea / (boardW * boardH)) * 100).toFixed(1)
             });
         }
     }
 
-    const totalBoardsArea = allSheetsResults.length * (boardW * boardH);
-    const avgUsage = totalBoardsArea > 0 ? ((totalPlacedAreaAllSheets / totalBoardsArea) * 100).toFixed(1): 0;
+    const totalBoardsArea = state.allSheetsResults.length * (boardW * boardH);
+    const avgUsage = totalBoardsArea > 0 ? ((totalPlacedAreaAllSheets / totalBoardsArea) * 100).toFixed(1) : 0;
 
-    lastTotalPerimeter = calculatedTotalPerimeter;
+    state.lastTotalPerimeter = calculatedTotalPerimeter;
 
     document.getElementById('statUsage').innerText = `${avgUsage}%`;
-    document.getElementById('statSheets').innerText = allSheetsResults.length;
+    document.getElementById('statSheets').innerText = state.allSheetsResults.length;
     updatePerimeterDisplay();
 
     const exportPdfBtn = document.getElementById('exportPdfBtn');
@@ -1046,36 +898,31 @@ function executeCalculation() {
     exportPdfBtn.removeAttribute('title');
 
     const toggleDragBtn = document.getElementById('toggleDragBtn');
-    if (toggleDragBtn) {
-        toggleDragBtn.disabled = false;
-    }
+    if (toggleDragBtn) toggleDragBtn.disabled = false;
 
-    hasCalculated = true;
+    state.hasCalculated = true;
     localStorage.removeItem('wood_calc_draft');
 
-    currentActiveSheetIndex = 0;
+    state.currentActiveSheetIndex = 0;
     renderTabs(boardW, boardH);
-    if (allSheetsResults.length > 0) {
+    if (state.allSheetsResults.length > 0) {
         switchSheet(0, boardW, boardH);
     }
 }
 
-function toggleDragMode() {
-    isDragMode = !isDragMode;
+window.toggleDragMode = function() {
+    state.isDragMode = !state.isDragMode;
     const btn = document.getElementById('toggleDragBtn');
     if (btn) {
-        btn.innerText = isDragMode ? '🖐️ 退出拖曳': '🖐️ 拖曳模式';
-        if (isDragMode) {
-            btn.classList.add('active-drag-mode');
-        } else {
-            btn.classList.remove('active-drag-mode');
-        }
+        btn.innerText = state.isDragMode ? '🖐️ 退出拖曳' : '🖐️ 拖曳模式';
+        if (state.isDragMode) btn.classList.add('active-drag-mode');
+        else btn.classList.remove('active-drag-mode');
     }
 
     const boardW = parseFloat(document.getElementById('boardW').value);
     const boardH = parseFloat(document.getElementById('boardH').value);
-    switchSheet(currentActiveSheetIndex, boardW, boardH);
-}
+    switchSheet(state.currentActiveSheetIndex, boardW, boardH);
+};
 
 function updateSheetStats() {
     const boardW = parseFloat(document.getElementById('boardW').value);
@@ -1083,17 +930,15 @@ function updateSheetStats() {
     const boardArea = boardW * boardH;
 
     let totalPlacedAreaAllSheets = 0;
-    allSheetsResults.forEach((sheet) => {
+    state.allSheetsResults.forEach((sheet) => {
         let sheetArea = 0;
-        sheet.placedItems.forEach(item => {
-            sheetArea += item.origW * item.origH;
-        });
+        sheet.placedItems.forEach(item => { sheetArea += item.origW * item.origH; });
         sheet.usage = ((sheetArea / boardArea) * 100).toFixed(1);
         totalPlacedAreaAllSheets += sheetArea;
     });
 
-    const totalBoardsArea = allSheetsResults.length * boardArea;
-    const avgUsage = totalBoardsArea > 0 ? ((totalPlacedAreaAllSheets / totalBoardsArea) * 100).toFixed(1): 0;
+    const totalBoardsArea = state.allSheetsResults.length * boardArea;
+    const avgUsage = totalBoardsArea > 0 ? ((totalPlacedAreaAllSheets / totalBoardsArea) * 100).toFixed(1) : 0;
     document.getElementById('statUsage').innerText = `${avgUsage}%`;
 
     renderTabs(boardW, boardH);
@@ -1103,13 +948,13 @@ function renderTabs(boardW, boardH) {
     const tabsContainer = document.getElementById('sheetTabs');
     tabsContainer.innerHTML = '';
 
-    allSheetsResults.forEach((sheet, idx) => {
+    state.allSheetsResults.forEach((sheet, idx) => {
         const btn = document.createElement('button');
-        btn.className = `tab-btn ${idx === currentActiveSheetIndex ? 'active': ''}`;
+        btn.className = `tab-btn ${idx === state.currentActiveSheetIndex ? 'active' : ''}`;
         btn.innerText = `底板 #${idx + 1} (${sheet.usage}%)`;
-
+        
         btn.onclick = () => {
-            currentActiveSheetIndex = idx;
+            state.currentActiveSheetIndex = idx;
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             switchSheet(idx, boardW, boardH);
@@ -1117,8 +962,8 @@ function renderTabs(boardW, boardH) {
 
         btn.ondragover = (e) => {
             e.preventDefault();
-            if (currentActiveSheetIndex !== idx) {
-                currentActiveSheetIndex = idx;
+            if (state.currentActiveSheetIndex !== idx) {
+                state.currentActiveSheetIndex = idx;
                 document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 switchSheet(idx, boardW, boardH);
@@ -1130,8 +975,8 @@ function renderTabs(boardW, boardH) {
 }
 
 function switchSheet(index, boardW, boardH) {
-    currentActiveSheetIndex = index;
-    const sheet = allSheetsResults[index];
+    state.currentActiveSheetIndex = index;
+    const sheet = state.allSheetsResults[index];
     if (sheet) {
         renderCanvas(boardW, boardH, sheet.placedItems);
     }
@@ -1146,7 +991,6 @@ function renderCanvas(boardW, boardH, placedItems) {
     canvasWrapper.style.display = 'inline-block';
 
     const canvas = document.createElement('canvas');
-
     const maxCanvasWidth = Math.min(container.clientWidth - 32, 1000);
     const scale = maxCanvasWidth / boardW;
 
@@ -1158,7 +1002,7 @@ function renderCanvas(boardW, boardH, placedItems) {
 
     drawSheetToCanvas(canvas, boardW, boardH, placedItems, scale);
 
-    if (isDragMode) {
+    if (state.isDragMode) {
         setupInteractiveDragOverlay(canvasWrapper, canvas, boardW, boardH, placedItems, scale);
     }
 }
@@ -1166,6 +1010,7 @@ function renderCanvas(boardW, boardH, placedItems) {
 function setupInteractiveDragOverlay(wrapper, canvas, boardW, boardH, placedItems, scale) {
     const gap = parseFloat(document.getElementById('gap').value) || 0;
     const allowRotation = document.getElementById('allowRotationSelect').value === 'true';
+    const cutMethod = document.getElementById('cutMethodSelect').value;
 
     placedItems.forEach((item, itemIdx) => {
         const overlay = document.createElement('div');
@@ -1181,66 +1026,89 @@ function setupInteractiveDragOverlay(wrapper, canvas, boardW, boardH, placedItem
         overlay.draggable = true;
 
         overlay.ondragstart = (e) => {
-            draggedItemInfo = {
-                fromSheetIndex: currentActiveSheetIndex,
+            state.draggedItemInfo = {
+                fromSheetIndex: state.currentActiveSheetIndex,
                 itemIndex: itemIdx,
-                itemData: {
-                    ...item,
-                    origW: item.origW,
-                    origH: item.origH
-                }
+                itemData: { ...item, origW: item.origW, origH: item.origH }
             };
             overlay.style.opacity = '0.4';
             e.dataTransfer.setData('text/plain', JSON.stringify(item));
         };
 
-        overlay.ondragend = () => {
-            overlay.style.opacity = '1';
-        };
+        overlay.ondragend = () => { overlay.style.opacity = '1'; };
 
         wrapper.appendChild(overlay);
     });
 
-    wrapper.ondragover = (e) => {
-        e.preventDefault();
-    };
+    wrapper.ondragover = (e) => { e.preventDefault(); };
 
     wrapper.ondrop = (e) => {
         e.preventDefault();
-        if (!draggedItemInfo) return;
+        if (!state.draggedItemInfo) return;
 
         const canvasRect = canvas.getBoundingClientRect();
         const dropPixelX = e.clientX - canvasRect.left;
         const dropPixelY = e.clientY - canvasRect.top;
 
-        let newX = dropPixelX / scale;
-        let newY = dropPixelY / scale;
+        let rawX = dropPixelX / scale;
+        let rawY = dropPixelY / scale;
 
-        const originalItem = draggedItemInfo.itemData;
-        const targetSheet = allSheetsResults[currentActiveSheetIndex];
+        const originalItem = state.draggedItemInfo.itemData;
+        const targetSheet = state.allSheetsResults[state.currentActiveSheetIndex];
         const targetPlacedItems = targetSheet.placedItems;
 
-        const isSameSheet = draggedItemInfo.fromSheetIndex === currentActiveSheetIndex;
-        const ignoreIdx = isSameSheet ? draggedItemInfo.itemIndex: -1;
+        const isSameSheet = state.draggedItemInfo.fromSheetIndex === state.currentActiveSheetIndex;
+        const ignoreIdx = isSameSheet ? state.draggedItemInfo.itemIndex : -1;
 
         let fitW = originalItem.w;
         let fitH = originalItem.h;
         let fitRotated = originalItem.rotated;
 
-        let canPlace = false;
+        let targetX = rawX;
+        let targetY = rawY;
+        const snapThreshold = 15;
 
+        let snapXCandidates = [0, boardW - fitW];
+        let snapYCandidates = [0, boardH - fitH];
+
+        targetPlacedItems.forEach((p, idx) => {
+            if (idx === ignoreIdx) return;
+            snapXCandidates.push(p.x, p.x + p.w + gap, p.x - fitW - gap);
+            snapYCandidates.push(p.y, p.y + p.h + gap, p.y - fitH - gap);
+        });
+
+        let bestX = rawX;
+        let minXDist = Infinity;
+        snapXCandidates.forEach(cand => {
+            let dist = Math.abs((rawX * scale) - (cand * scale));
+            if (dist < minXDist && dist <= snapThreshold) {
+                minXDist = dist;
+                bestX = cand;
+            }
+        });
+
+        let bestY = rawY;
+        let minYDist = Infinity;
+        snapYCandidates.forEach(cand => {
+            let dist = Math.abs((rawY * scale) - (cand * scale));
+            if (dist < minYDist && dist <= snapThreshold) {
+                minYDist = dist;
+                bestY = cand;
+            }
+        });
+
+        targetX = bestX;
+        targetY = bestY;
+
+        let canPlace = false;
         const checkInBounds = (x, y, w, h) => x >= 0 && y >= 0 && (x + w) <= boardW + 0.001 && (y + h) <= boardH + 0.001;
 
-        if (checkInBounds(newX, newY, fitW, fitH) && !isOverlapping(targetPlacedItems, {
-            x: newX, y: newY, w: fitW, h: fitH
-        }, ignoreIdx, gap)) {
+        if (checkInBounds(targetX, targetY, fitW, fitH) && !isOverlapping(targetPlacedItems, { x: targetX, y: targetY, w: fitW, h: fitH }, ignoreIdx, gap)) {
             canPlace = true;
         } else if (allowRotation) {
             const rotW = originalItem.h;
             const rotH = originalItem.w;
-            if (checkInBounds(newX, newY, rotW, rotH) && !isOverlapping(targetPlacedItems, {
-                x: newX, y: newY, w: rotW, h: rotH
-            }, ignoreIdx, gap)) {
+            if (checkInBounds(targetX, targetY, rotW, rotH) && !isOverlapping(targetPlacedItems, { x: targetX, y: targetY, w: rotW, h: rotH }, ignoreIdx, gap)) {
                 canPlace = true;
                 fitW = rotW;
                 fitH = rotH;
@@ -1249,25 +1117,23 @@ function setupInteractiveDragOverlay(wrapper, canvas, boardW, boardH, placedItem
         }
 
         if (canPlace) {
-            const sourceSheet = allSheetsResults[draggedItemInfo.fromSheetIndex];
-            sourceSheet.placedItems.splice(draggedItemInfo.itemIndex, 1);
+            const sourceSheet = state.allSheetsResults[state.draggedItemInfo.fromSheetIndex];
+            sourceSheet.placedItems.splice(state.draggedItemInfo.itemIndex, 1);
 
             targetSheet.placedItems.push({
-                x: newX,
-                y: newY,
-                w: fitW,
-                h: fitH,
+                x: targetX, y: targetY,
+                w: fitW, h: fitH,
                 origW: originalItem.origW,
                 origH: originalItem.origH,
                 rotated: fitRotated
             });
 
-            draggedItemInfo = null;
+            state.draggedItemInfo = null;
             updateSheetStats();
-            switchSheet(currentActiveSheetIndex, boardW, boardH);
+            switchSheet(state.currentActiveSheetIndex, boardW, boardH);
         } else {
             alert('放不下！該位置超出邊界、空間不足或發生重疊。');
-            draggedItemInfo = null;
+            state.draggedItemInfo = null;
         }
     };
 }
@@ -1288,7 +1154,7 @@ function drawSheetToCanvas(canvas, boardW, boardH, placedItems, scale) {
         const h = item.h * scale;
 
         const key = `${item.origW}_${item.origH}`;
-        const fillColor = globalDimColorMap[key] || '#1e40af';
+        const fillColor = state.globalDimColorMap[key] || '#1e40af';
 
         ctx.fillStyle = fillColor;
         ctx.globalAlpha = 0.85;
@@ -1304,14 +1170,14 @@ function drawSheetToCanvas(canvas, boardW, boardH, placedItems, scale) {
             ctx.font = `600 ${Math.max(10, Math.min(13, w / 5))}px sans-serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            const label = `${item.origW}×${item.origH}${item.rotated ? ' ↻': ''}`;
+            const label = `${item.origW}×${item.origH}${item.rotated ? ' ↻' : ''}`;
             ctx.fillText(label, x + w / 2, y + h / 2);
         }
     });
 }
 
-function exportToPDF() {
-    if (allSheetsResults.length === 0) return;
+window.exportToPDF = function() {
+    if (state.allSheetsResults.length === 0) return;
 
     const exportPdfBtn = document.getElementById('exportPdfBtn');
     exportPdfBtn.disabled = true;
@@ -1325,7 +1191,7 @@ function exportToPDF() {
 
             container.innerHTML = '';
 
-            allSheetsResults.forEach((sheet, idx) => {
+            state.allSheetsResults.forEach((sheet, idx) => {
                 const wrapper = document.createElement('div');
                 wrapper.className = 'pdf-sheet-wrapper';
 
@@ -1339,18 +1205,20 @@ function exportToPDF() {
                 canvas.width = boardW * scale;
                 canvas.height = boardH * scale;
 
-                drawSheetToCanvas(canvas, boardW, boardH, sheet.placedItems, scale);
+                drawSheetTypeToCanvasCustom(canvas, boardW, boardH, sheet.placedItems, scale);
                 wrapper.appendChild(canvas);
-
                 container.appendChild(wrapper);
             });
 
             window.print();
-
             switchSheet(0, boardW, boardH);
         } finally {
             exportPdfBtn.disabled = false;
             exportPdfBtn.innerText = '📄 匯出 PDF / 列印';
         }
     }, 50);
+};
+
+function drawSheetTypeToCanvasCustom(canvas, boardW, boardH, placedItems, scale) {
+    drawSheetToCanvas(canvas, boardW, boardH, placedItems, scale);
 }
