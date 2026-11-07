@@ -1,0 +1,47 @@
+<div id="guideModal" class="modal-backdrop" style="display: none;">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3>📖 操作指南</h3>
+            <button class="modal-close" onclick="closeGuideModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="notice-section collapsible">
+                <h4 class="notice-topic-title" onclick="toggleNoticeSection(this)">
+                    <span>1. 基本參數設定</span>
+                    <span class="collapse-icon">▼</span>
+                </h4>
+                <ul class="modal-notice-list" style="display: none;">
+                    <li>選擇計算單位（mm 或 cm）。</li>
+                    <li>輸入木板底板的長度與寬度（點擊中間的交換按鈕可快速對調長寬）。</li>
+                    <li>設定鋸縫/間隔與是否允許旋轉。</li>
+                    <li>選擇裁切方式（CNC裁切或裁板機裁切）。</li>
+                </ul>
+            </div>
+
+            <div class="notice-section collapsible">
+                <h4 class="notice-topic-title" onclick="toggleNoticeSection(this)">
+                    <span>2. 輸入切片需求</span>
+                    <span class="collapse-icon">▼</span>
+                </h4>
+                <ul class="modal-notice-list" style="display: none;">
+                    <li>手動輸入各個切片的長、寬、厚度與數量。</li>
+                    <li>可點擊「新增尺寸」來增加多組需求，或使用「Excel 匯入」批次帶入資料。</li>
+                </ul>
+            </div>
+
+            <div class="notice-section collapsible">
+                <h4 class="notice-topic-title" onclick="toggleNoticeSection(this)">
+                    <span>3. 計算與拖曳調整</span>
+                    <span class="collapse-icon">▼</span>
+                </h4>
+                <ul class="modal-notice-list" style="display: none;">
+                    <li>點擊「開始計算」後，下方會顯示利用率、底板數與排樣圖。</li>
+                    <li>開啟「拖曳模式」可以用滑鼠拖曳切片調整位置，系統會自動根據選擇的裁切方式進行貼齊（Snap）。</li>
+                </ul>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" style="width: auto; margin-top: 0;" onclick="closeGuideModal()">關閉</button>
+        </div>
+    </div>
+</div>
