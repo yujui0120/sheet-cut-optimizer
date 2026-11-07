@@ -44,7 +44,7 @@
 
                 <div class="form-group">
                     <label for="unitSelect">單位選擇</label>
-                    <select id="unitSelect" class="form-control" onchange="handleUnitChange(this.value); clearInvalidMark(this);">
+                    <select id="unitSelect" class="form-control" onchange="handleUnitChange(this.value); clearInvalidMark(this); saveDraftToLocalStorage();">
                         <option value="" disabled selected>請選擇</option>
                         <option value="mm">mm (公厘)</option>
                         <option value="cm">cm (公分)</option>
@@ -54,20 +54,20 @@
                 <div class="form-group">
                     <label>底板尺寸 (長 × 寬)</label>
                     <div class="inline-inputs">
-                        <input type="number" id="boardW" class="form-control" value="2440" min="1" step="any" placeholder="長" onchange="validatePositiveInput(this, 'dimension'); clearInvalidMark(this);">
-                        <span class="multiply-sign">×</span>
-                        <input type="number" id="boardH" class="form-control" value="1220" min="1" step="any" placeholder="寬" onchange="validatePositiveInput(this, 'dimension'); clearInvalidMark(this);">
+                        <input type="number" id="boardW" class="form-control" value="2440" min="1" step="any" placeholder="長" onchange="validatePositiveInput(this, 'dimension'); clearInvalidMark(this); saveDraftToLocalStorage();">
+                        <button type="button" class="btn-swap" title="交換長寬" onclick="swapBoardDimensions()">⮂</button>
+                        <input type="number" id="boardH" class="form-control" value="1220" min="1" step="any" placeholder="寬" onchange="validatePositiveInput(this, 'dimension'); clearInvalidMark(this); saveDraftToLocalStorage();">
                     </div>
                 </div>
 
                 <div class="form-group">
                     <label for="gap">鋸縫 / 間隔</label>
-                    <input type="number" id="gap" class="form-control" value="3" min="0" step="any" placeholder="鋸縫" onchange="validatePositiveInput(this, 'zeroAllowed'); clearInvalidMark(this);">
+                    <input type="number" id="gap" class="form-control" value="3" min="0" step="any" placeholder="鋸縫" onchange="validatePositiveInput(this, 'zeroAllowed'); clearInvalidMark(this); saveDraftToLocalStorage();">
                 </div>
 
                 <div class="form-group">
                     <label for="allowRotationSelect">允許旋轉</label>
-                    <select id="allowRotationSelect" class="form-control" onchange="clearInvalidMark(this);">
+                    <select id="allowRotationSelect" class="form-control" onchange="clearInvalidMark(this); saveDraftToLocalStorage();">
                         <option value="" disabled selected>請選擇</option>
                         <option value="true">是</option>
                         <option value="false">否</option>
@@ -76,7 +76,7 @@
 
                 <div class="form-group">
                     <label for="cutMethodSelect">裁切方式</label>
-                    <select id="cutMethodSelect" class="form-control" onchange="clearInvalidMark(this);">
+                    <select id="cutMethodSelect" class="form-control" onchange="clearInvalidMark(this); saveDraftToLocalStorage();">
                         <option value="" disabled selected>請選擇</option>
                         <option value="cnc">CNC裁切</option>
                         <option value="saw">裁板機裁切</option>
@@ -121,7 +121,7 @@
                         <span class="plus-icon">+</span> 新增尺寸
                     </button>
 
-                    <button class="btn btn-primary btn-calc" onclick="calculateLayout()">
+                    <button id="calcBtn" class="btn btn-primary btn-calc" onclick="calculateLayout()">
                         開始計算
                     </button>
                 </div>
@@ -200,20 +200,28 @@
             </div>
             <div class="modal-body">
 
-                <div class="notice-section">
+                <div class="notice-section new">
                     <h4 class="notice-topic-title">
-                        【公告】更新公告
-                        <span class="notice-date">2026-10-28</span>
+                        【公告】11/7更新公告
+                        <span class="notice-date">2026-11-07</span>
                     </h4>
                     <ul class="modal-notice-list">
-                        <li>若非授權之IP，無法進入本頁面</li>
-                        <li>同尺寸皆以同顏色顯示</li>
-                        <li>新增「厚度」，不影響計算</li>
-                        <li>Excel匯入功能支援欄位條件篩選</li>
-                        <li class="red">(11/1追加) Excel匯入新增篩選功能</li>
-                        <li class="red">(11/1追加) 厚度欄位可依需求顯示/隱藏</li>
-                        <li class="red">(11/1追加) 數據下載功能</li>
-                        <li class="red">(11/1追加) 新增問題回報表單</li>
+                        <li>長寬可一鍵對調</li>
+                        <li>尚未計算時重新整理網頁可以載入未計算的數據</li>
+                    </ul>
+                </div>
+
+                <div class="notice-section">
+                    <h4 class="notice-topic-title">
+                        【公告】11/1更新公告
+                        <span class="notice-date">2026-11-01</span>
+                    </h4>
+                    <ul class="modal-notice-list">
+                        <li>Excel匯入新增篩選功能</li>
+                        <li>厚度欄位可依需求顯示/隱藏</li>
+                        <li>數據下載功能</li>
+                        <li>新增問題回報表單</li>
+                        <li>新增按鈕可重複檢視公告</li>
                     </ul>
                 </div>
 
@@ -225,6 +233,18 @@
                     <ul class="modal-notice-list">
                         <li>僅支援.xlsx、.xls、.csv三種檔案類型</li>
                         <li>非數字內容將自動忽略</li>
+                    </ul>
+                </div>
+
+                <div class="notice-section">
+                    <h4 class="notice-topic-title">
+                        【系統】問題回報、建議區開設
+                        <span class="notice-date">系統公告</span>
+                    </h4>
+                    <ul class="modal-notice-list">
+                        <li>網頁最下方新增「問題回報表單」（位於聯絡資訊內）</li>
+                        <li>有更新建議或網站有問題可至表單回報</li>
+                        <li>需要時，建議附上檔案（圖片、PDF、Eexcl皆可）至該表單，可更快速解決問題</li>
                     </ul>
                 </div>
 
@@ -242,10 +262,6 @@
             </div>
             <div class="modal-body">
                 <div style="display: flex; flex-direction: column; gap: 16px; font-size: 0.92rem; color: var(--text-main);">
-                    <div>
-                        <span style="font-weight: 700; color: var(--text-main); display: block; margin-bottom: 4px;">電子信箱：</span>
-                        <a href="mailto:amigo20110120@gmail.com" style="color: var(--primary); text-decoration: underline; font-weight: 600;">amigo20110120@gmail.com</a>
-                    </div>
                     <div>
                         <span style="font-weight: 700; color: var(--text-main); display: block; margin-bottom: 4px;">問題回報表單：</span>
                         <a href="https://forms.gle/Kj6CUgjSTC9fnn3X8" target="_blank" style="color: var(--primary); text-decoration: underline; font-weight: 600;">https://forms.gle/Kj6CUgjSTC9fnn3X8</a>
