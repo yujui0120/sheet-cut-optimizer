@@ -1,5 +1,6 @@
-import { state, ALLOWED_IPS, PASSCODE, COLORS } from './config.js';
-import { isOverlapping, splitFreeRectSaw } from './optimizer.js';
+import { state } from './config.js';
+import { isOverlapping, optimizeCNC, optimizeSaw } from './optimizer.js';
+import { verifyUserAccess } from './auth.js';
 
 async function loadModals() {
     try {
@@ -40,88 +41,26 @@ function setupModalScrollLock() {
 
 window.onload = async () => {
     await loadModals();
-
-    let fetchSuccess = false;
-    const loaderContentArea = document.getElementById('loaderContentArea');
-
-    try {
-        const response = await fetch('https://api.ipify.org?format=json');
-        const data = await response.json();
-        if (data && data.ip) {
-            state.userIpAddress = data.ip;
-            fetchSuccess = true;
+    verifyUserAccess(() => {
+        const loader = document.getElementById('initialLoader');
+        if (loader) {
+            loader.style.opacity = '0';
+            setTimeout(() => {
+                loader.style.display = 'none';
+                window.grantAccessAfterAuth();
+            }, 300);
+        } else {
+            window.grantAccessAfterAuth();
         }
-    } catch (error1) {
-        try {
-            const response2 = await fetch('https://ipwho.is/');
-            const data2 = await response2.json();
-            if (data2 && data2.ip) {
-                state.userIpAddress = data2.ip;
-                fetchSuccess = true;
-            }
-        } catch (error2) {}
-    }
-
-    if (!fetchSuccess) {
-        if (loaderContentArea) {
-            loaderContentArea.innerHTML = `
-            <div style="font-size: 1.6rem; color: var(--danger); font-weight: 800; margin-bottom: 8px;">無法取得 IP</div>
-            <div style="font-size: 1.1rem; color: var(--text-main); font-weight: 600; margin-bottom: 6px;">無法取得您的設備IP</div>
-            <div style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 14px;">請輸入通行碼以繼續：</div>
-            <div style="display: flex; gap: 8px; max-width: 280px; width: 100%; flex-direction: column;">
-            <input type="password" id="passcodeInput" class="form-control" placeholder="請輸入通行碼">
-            <button class="btn btn-primary" style="width: 100%; margin-top: 4px;" onclick="verifyPasscode()">確認</button>
-            </div>
-            `;
-        }
-        return;
-    }
-
-    if (!ALLOWED_IPS.includes(state.userIpAddress)) {
-        if (loaderContentArea) {
-            loaderContentArea.innerHTML = `
-            <div style="font-size: 1.6rem; color: var(--danger); font-weight: 800; margin-bottom: 8px;">存取權限錯誤</div>
-            <div style="font-size: 1.1rem; color: var(--text-main); font-weight: 600; margin-bottom: 6px;">無法使用網頁</div>
-            <div style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 14px;">偵測到您的 IP (${state.userIpAddress}) 未授權，請輸入通行碼：</div>
-            <div style="display: flex; gap: 8px; max-width: 280px; width: 100%; flex-direction: column;">
-            <input type="password" id="passcodeInput" class="form-control" placeholder="請輸入通行碼">
-            <button class="btn btn-primary" style="width: 100%; margin-top: 4px;" onclick="verifyPasscode()">確認</button>
-            </div>
-            `;
-        }
-        return;
-    }
-
-    grantAccess();
+    });
 };
 
-window.verifyPasscode = function() {
-    const inputVal = document.getElementById('passcodeInput').value;
-    if (inputVal === PASSCODE) {
-        grantAccess();
-    } else {
-        alert('通行碼錯誤，請重新輸入！');
-    }
+window.grantAccessAfterAuth = function() {
+    window.addItemRow('', '', '', '', false);
+    updateThicknessVisibilityUI();
+    updatePerimeterDisplay();
+    openNoticeModal();
 };
-
-function grantAccess() {
-    const loader = document.getElementById('initialLoader');
-    if (loader) {
-        loader.style.opacity = '0';
-        setTimeout(() => {
-            loader.style.display = 'none';
-            window.addItemRow('', '', '', '', false);
-            updateThicknessVisibilityUI();
-            updatePerimeterDisplay();
-            openNoticeModal();
-        }, 300);
-    } else {
-        window.addItemRow('', '', '', '', false);
-        updateThicknessVisibilityUI();
-        updatePerimeterDisplay();
-        openNoticeModal();
-    }
-}
 
 window.openGuideModal = function() {
     const modal = document.getElementById('guideModal');
@@ -131,7 +70,6 @@ window.openGuideModal = function() {
             const list = section.querySelector('.modal-notice-list');
             if (list) list.style.display = 'none';
         });
-
         modal.style.display = 'flex';
         setTimeout(() => { modal.classList.add('show'); }, 10);
     }
@@ -149,7 +87,6 @@ window.toggleNoticeSection = function(headerElem) {
     const section = headerElem.closest('.notice-section');
     const modalBody = section.closest('.modal-body');
     const list = section.querySelector('.modal-notice-list');
-    
     const isActive = section.classList.contains('active');
 
     if (section.closest('#guideModal')) {
@@ -800,176 +737,26 @@ function executeCalculation() {
         return;
     }
 
-    unplacedItems.sort((a, b) => b.area - a.area);
-
-    state.globalDimColorMap = {};
-    let colorIndex = 0;
-
-    state.allSheetsResults = [];
-    let totalPlacedAreaAllSheets = 0;
-    let calculatedTotalPerimeter = 0;
-
+    let result;
     if (cutMethod === 'cnc') {
-        while (unplacedItems.length > 0) {
-            let freeRects = [{ x: 0, y: 0, w: boardW, h: boardH }];
-            let placedInThisSheet = [];
-            let remainingItemsForNextSheet = [];
-            let sheetPlacedArea = 0;
-
-            for (let item of unplacedItems) {
-                let bestFit = null;
-                let bestRotated = false;
-
-                for (let i = 0; i < freeRects.length; i++) {
-                    let rect = freeRects[i];
-
-                    if (item.w <= rect.w && item.h <= rect.h) {
-                        bestFit = { rectIdx: i, x: rect.x, y: rect.y, w: item.w, h: item.h };
-                        bestRotated = false;
-                        break;
-                    }
-                    if (allowRotation && item.h <= rect.w && item.w <= rect.h) {
-                        bestFit = { rectIdx: i, x: rect.x, y: rect.y, w: item.h, h: item.w };
-                        bestRotated = true;
-                        break;
-                    }
-                }
-
-                if (bestFit) {
-                    const key = `${item.w}_${item.h}`;
-                    if (!state.globalDimColorMap[key]) {
-                        state.globalDimColorMap[key] = COLORS[colorIndex % COLORS.length];
-                        colorIndex++;
-                    }
-
-                    placedInThisSheet.push({
-                        x: bestFit.x, y: bestFit.y,
-                        w: bestFit.w, h: bestFit.h,
-                        origW: item.w, origH: item.h,
-                        rotated: bestRotated
-                    });
-                    sheetPlacedArea += item.area;
-                    calculatedTotalPerimeter += 2 * (item.w + item.h);
-
-                    let usedRect = freeRects.splice(bestFit.rectIdx, 1)[0];
-
-                    if (usedRect.w - bestFit.w - gap > 0) {
-                        freeRects.push({
-                            x: bestFit.x + bestFit.w + gap,
-                            y: bestFit.y,
-                            w: usedRect.w - bestFit.w - gap,
-                            h: bestFit.h
-                        });
-                    }
-                    if (usedRect.h - bestFit.h - gap > 0) {
-                        freeRects.push({
-                            x: bestFit.x,
-                            y: bestFit.y + bestFit.h + gap,
-                            w: usedRect.w,
-                            h: usedRect.h - bestFit.h - gap
-                        });
-                    }
-                } else {
-                    remainingItemsForNextSheet.push(item);
-                }
-            }
-
-            if (placedInThisSheet.length === 0) break;
-
-            totalPlacedAreaAllSheets += sheetPlacedArea;
-            state.allSheetsResults.push({
-                placedItems: placedInThisSheet,
-                usage: ((sheetPlacedArea / (boardW * boardH)) * 100).toFixed(1)
-            });
-
-            unplacedItems = remainingItemsForNextSheet;
-        }
+        result = optimizeCNC(boardW, boardH, gap, allowRotation, unplacedItems);
     } else {
-        while (unplacedItems.length > 0) {
-            let freeRects = [{ x: 0, y: 0, w: boardW, h: boardH }];
-            let placedInThisSheet = [];
-            let sheetPlacedArea = 0;
-
-            let i = 0;
-            while (i < unplacedItems.length) {
-                let item = unplacedItems[i];
-                let placed = false;
-
-                for (let r = 0; r < freeRects.length; r++) {
-                    let freeRect = freeRects[r];
-                    if (
-                        item.w <= freeRect.w &&
-                        item.h <= freeRect.h &&
-                        !isOverlapping(placedInThisSheet, { x: freeRect.x, y: freeRect.y, w: item.w, h: item.h }, -1, gap)
-                    ) {
-                        const key = `${item.w}_${item.h}`;
-                        if (!state.globalDimColorMap[key]) {
-                            state.globalDimColorMap[key] = COLORS[colorIndex % COLORS.length];
-                            colorIndex++;
-                        }
-
-                        placedInThisSheet.push({
-                            x: freeRect.x, y: freeRect.y,
-                            w: item.w, h: item.h,
-                            origW: item.w, origH: item.h,
-                            rotated: false
-                        });
-                        sheetPlacedArea += item.area;
-                        calculatedTotalPerimeter += 2 * (item.w + item.h);
-
-                        freeRects = splitFreeRectSaw(freeRects, freeRect, item.w, item.h, gap);
-                        placed = true;
-                        break;
-                    }
-                    if (allowRotation) {
-                        if (
-                            item.h <= freeRect.w &&
-                            item.w <= freeRect.h &&
-                            !isOverlapping(placedInThisSheet, { x: freeRect.x, y: freeRect.y, w: item.h, h: item.w }, -1, gap)
-                        ) {
-                            const key = `${item.w}_${item.h}`;
-                            if (!state.globalDimColorMap[key]) {
-                                state.globalDimColorMap[key] = COLORS[colorIndex % COLORS.length];
-                                colorIndex++;
-                            }
-
-                            placedInThisSheet.push({
-                                x: freeRect.x, y: freeRect.y,
-                                w: item.h, h: item.w,
-                                origW: item.w, origH: item.h,
-                                rotated: true
-                            });
-                            sheetPlacedArea += item.area;
-                            calculatedTotalPerimeter += 2 * (item.w + item.h);
-
-                            freeRects = splitFreeRectSaw(freeRects, freeRect, item.h, item.w, gap);
-                            placed = true;
-                            break;
-                        }
-                    }
-                }
-
-                if (placed) {
-                    unplacedItems.splice(i, 1);
-                } else {
-                    i++;
-                }
-            }
-
-            if (placedInThisSheet.length === 0) break;
-
-            totalPlacedAreaAllSheets += sheetPlacedArea;
-            state.allSheetsResults.push({
-                placedItems: placedInThisSheet,
-                usage: ((sheetPlacedArea / (boardW * boardH)) * 100).toFixed(1)
-            });
-        }
+        result = optimizeSaw(boardW, boardH, gap, allowRotation, unplacedItems);
     }
+
+    state.allSheetsResults = result.allSheetsResults;
+    state.lastTotalPerimeter = result.totalPerimeter;
+    state.globalDimColorMap = result.globalDimColorMap;
+
+    let totalPlacedAreaAllSheets = 0;
+    state.allSheetsResults.forEach(sheet => {
+        sheet.placedItems.forEach(item => {
+            totalPlacedAreaAllSheets += (item.origW * item.origH);
+        });
+    });
 
     const totalBoardsArea = state.allSheetsResults.length * (boardW * boardH);
     const avgUsage = totalBoardsArea > 0 ? ((totalPlacedAreaAllSheets / totalBoardsArea) * 100).toFixed(1) : 0;
-
-    state.lastTotalPerimeter = calculatedTotalPerimeter;
 
     document.getElementById('statUsage').innerText = `${avgUsage}%`;
     document.getElementById('statSheets').innerText = state.allSheetsResults.length;
@@ -1150,71 +937,37 @@ function setupInteractiveDragOverlay(wrapper, canvas, boardW, boardH, placedItem
         let targetY = rawY;
         const snapThreshold = 15;
 
-        if (cutMethod === 'saw') {
-            let snapXCandidates = [0, boardW - fitW];
-            let snapYCandidates = [0, boardH - fitH];
+        let snapXCandidates = [0, boardW - fitW];
+        let snapYCandidates = [0, boardH - fitH];
 
-            targetPlacedItems.forEach((p, idx) => {
-                if (idx === ignoreIdx) return;
-                snapXCandidates.push(p.x, p.x + p.w + gap, p.x - fitW - gap);
-                snapYCandidates.push(p.y, p.y + p.h + gap, p.y - fitH - gap);
-            });
+        targetPlacedItems.forEach((p, idx) => {
+            if (idx === ignoreIdx) return;
+            snapXCandidates.push(p.x, p.x + p.w + gap, p.x - fitW - gap);
+            snapYCandidates.push(p.y, p.y + p.h + gap, p.y - fitH - gap);
+        });
 
-            let bestX = rawX;
-            let minXDist = Infinity;
-            snapXCandidates.forEach(cand => {
-                let dist = Math.abs((rawX * scale) - (cand * scale));
-                if (dist < minXDist && dist <= snapThreshold) {
-                    minXDist = dist;
-                    bestX = cand;
-                }
-            });
+        let bestX = rawX;
+        let minXDist = Infinity;
+        snapXCandidates.forEach(cand => {
+            let dist = Math.abs((rawX * scale) - (cand * scale));
+            if (dist < minXDist && dist <= snapThreshold) {
+                minXDist = dist;
+                bestX = cand;
+            }
+        });
 
-            let bestY = rawY;
-            let minYDist = Infinity;
-            snapYCandidates.forEach(cand => {
-                let dist = Math.abs((rawY * scale) - (cand * scale));
-                if (dist < minYDist && dist <= snapThreshold) {
-                    minYDist = dist;
-                    bestY = cand;
-                }
-            });
+        let bestY = rawY;
+        let minYDist = Infinity;
+        snapYCandidates.forEach(cand => {
+            let dist = Math.abs((rawY * scale) - (cand * scale));
+            if (dist < minYDist && dist <= snapThreshold) {
+                minYDist = dist;
+                bestY = cand;
+            }
+        });
 
-            targetX = bestX;
-            targetY = bestY;
-        } else {
-            let snapXCandidates = [0, boardW - fitW];
-            let snapYCandidates = [0, boardH - fitH];
-
-            targetPlacedItems.forEach((p, idx) => {
-                if (idx === ignoreIdx) return;
-                snapXCandidates.push(p.x, p.x + p.w + gap, p.x - fitW - gap);
-                snapYCandidates.push(p.y, p.y + p.h + gap, p.y - fitH - gap);
-            });
-
-            let bestX = rawX;
-            let minXDist = Infinity;
-            snapXCandidates.forEach(cand => {
-                let dist = Math.abs((rawX * scale) - (cand * scale));
-                if (dist < minXDist && dist <= snapThreshold) {
-                    minXDist = dist;
-                    bestX = cand;
-                }
-            });
-
-            let bestY = rawY;
-            let minYDist = Infinity;
-            snapYCandidates.forEach(cand => {
-                let dist = Math.abs((rawY * scale) - (cand * scale));
-                if (dist < minYDist && dist <= snapThreshold) {
-                    minYDist = dist;
-                    bestY = cand;
-                }
-            });
-
-            targetX = bestX;
-            targetY = bestY;
-        }
+        targetX = bestX;
+        targetY = bestY;
 
         let canPlace = false;
         const checkInBounds = (x, y, w, h) => x >= 0 && y >= 0 && (x + w) <= boardW + 0.001 && (y + h) <= boardH + 0.001;
