@@ -1,7 +1,25 @@
 import { state, ALLOWED_IPS, PASSCODE, COLORS } from './config.js';
 import { isOverlapping, splitFreeRectSaw } from './optimizer.js';
 
+async function loadModals() {
+    try {
+        const [noticeRes, guideRes] = await Promise.all([
+            fetch('notice.html'),
+            fetch('guide.html')
+        ]);
+        const noticeHtml = await noticeRes.text();
+        const guideHtml = await guideRes.text();
+
+        const container = document.getElementById('modalContainer');
+        if (container) {
+            container.innerHTML = noticeHtml + guideHtml;
+        }
+    } catch (err) {}
+}
+
 window.onload = async () => {
+    await loadModals();
+
     let fetchSuccess = false;
     const loaderContentArea = document.getElementById('loaderContentArea');
 
@@ -83,6 +101,35 @@ function grantAccess() {
         openNoticeModal();
     }
 }
+
+window.openGuideModal = function() {
+    const modal = document.getElementById('guideModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        setTimeout(() => { modal.classList.add('show'); }, 10);
+    }
+};
+
+window.closeGuideModal = function() {
+    const modal = document.getElementById('guideModal');
+    if (modal) {
+        modal.classList.remove('show');
+        setTimeout(() => { modal.style.display = 'none'; }, 300);
+    }
+};
+
+window.toggleNoticeSection = function(headerElem) {
+    const section = headerElem.closest('.notice-section');
+    const list = section.querySelector('.modal-notice-list');
+    
+    if (section.classList.contains('active')) {
+        section.classList.remove('active');
+        list.style.display = 'none';
+    } else {
+        section.classList.add('active');
+        list.style.display = 'block';
+    }
+};
 
 window.toggleThicknessColumn = function(forceState = null) {
     if (forceState !== null) {
@@ -1068,37 +1115,71 @@ function setupInteractiveDragOverlay(wrapper, canvas, boardW, boardH, placedItem
         let targetY = rawY;
         const snapThreshold = 15;
 
-        let snapXCandidates = [0, boardW - fitW];
-        let snapYCandidates = [0, boardH - fitH];
+        if (cutMethod === 'saw') {
+            let snapXCandidates = [0, boardW - fitW];
+            let snapYCandidates = [0, boardH - fitH];
 
-        targetPlacedItems.forEach((p, idx) => {
-            if (idx === ignoreIdx) return;
-            snapXCandidates.push(p.x, p.x + p.w + gap, p.x - fitW - gap);
-            snapYCandidates.push(p.y, p.y + p.h + gap, p.y - fitH - gap);
-        });
+            targetPlacedItems.forEach((p, idx) => {
+                if (idx === ignoreIdx) return;
+                snapXCandidates.push(p.x, p.x + p.w + gap, p.x - fitW - gap);
+                snapYCandidates.push(p.y, p.y + p.h + gap, p.y - fitH - gap);
+            });
 
-        let bestX = rawX;
-        let minXDist = Infinity;
-        snapXCandidates.forEach(cand => {
-            let dist = Math.abs((rawX * scale) - (cand * scale));
-            if (dist < minXDist && dist <= snapThreshold) {
-                minXDist = dist;
-                bestX = cand;
-            }
-        });
+            let bestX = rawX;
+            let minXDist = Infinity;
+            snapXCandidates.forEach(cand => {
+                let dist = Math.abs((rawX * scale) - (cand * scale));
+                if (dist < minXDist && dist <= snapThreshold) {
+                    minXDist = dist;
+                    bestX = cand;
+                }
+            });
 
-        let bestY = rawY;
-        let minYDist = Infinity;
-        snapYCandidates.forEach(cand => {
-            let dist = Math.abs((rawY * scale) - (cand * scale));
-            if (dist < minYDist && dist <= snapThreshold) {
-                minYDist = dist;
-                bestY = cand;
-            }
-        });
+            let bestY = rawY;
+            let minYDist = Infinity;
+            snapYCandidates.forEach(cand => {
+                let dist = Math.abs((rawY * scale) - (cand * scale));
+                if (dist < minYDist && dist <= snapThreshold) {
+                    minYDist = dist;
+                    bestY = cand;
+                }
+            });
 
-        targetX = bestX;
-        targetY = bestY;
+            targetX = bestX;
+            targetY = bestY;
+        } else {
+            let snapXCandidates = [0, boardW - fitW];
+            let snapYCandidates = [0, boardH - fitH];
+
+            targetPlacedItems.forEach((p, idx) => {
+                if (idx === ignoreIdx) return;
+                snapXCandidates.push(p.x, p.x + p.w + gap, p.x - fitW - gap);
+                snapYCandidates.push(p.y, p.y + p.h + gap, p.y - fitH - gap);
+            });
+
+            let bestX = rawX;
+            let minXDist = Infinity;
+            snapXCandidates.forEach(cand => {
+                let dist = Math.abs((rawX * scale) - (cand * scale));
+                if (dist < minXDist && dist <= snapThreshold) {
+                    minXDist = dist;
+                    bestX = cand;
+                }
+            });
+
+            let bestY = rawY;
+            let minYDist = Infinity;
+            snapYCandidates.forEach(cand => {
+                let dist = Math.abs((rawY * scale) - (cand * scale));
+                if (dist < minYDist && dist <= snapThreshold) {
+                    minYDist = dist;
+                    bestY = cand;
+                }
+            });
+
+            targetX = bestX;
+            targetY = bestY;
+        }
 
         let canPlace = false;
         const checkInBounds = (x, y, w, h) => x >= 0 && y >= 0 && (x + w) <= boardW + 0.001 && (y + h) <= boardH + 0.001;
@@ -1222,16 +1303,3 @@ window.exportToPDF = function() {
 function drawSheetTypeToCanvasCustom(canvas, boardW, boardH, placedItems, scale) {
     drawSheetToCanvas(canvas, boardW, boardH, placedItems, scale);
 }
-
-window.toggleNoticeSection = function(headerElem) {
-    const section = headerElem.closest('.notice-section');
-    const list = section.querySelector('.modal-notice-list');
-    
-    if (section.classList.contains('active')) {
-        section.classList.remove('active');
-        list.style.display = 'none';
-    } else {
-        section.classList.add('active');
-        list.style.display = 'block';
-    }
-};
