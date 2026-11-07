@@ -135,6 +135,9 @@
                     <span class="step-badge">3</span>
                     <h2>計算結果</h2>
                     <div class="header-actions">
+                        <button id="toggleDragBtn" class="btn btn-sm btn-outline" onclick="toggleDragMode()" disabled title="啟用後可用滑鼠拖曳調整切片位置">
+                            🖐️ 拖曳模式
+                        </button>
                         <button id="exportPdfBtn" class="btn btn-sm btn-outline" onclick="exportToPDF()" disabled>
                             📄 匯出 PDF / 列印
                         </button>
@@ -208,6 +211,7 @@
                     <ul class="modal-notice-list">
                         <li>長寬可一鍵對調</li>
                         <li>尚未計算時重新整理網頁可以載入未計算的數據</li>
+                        <li class="yellow">(測試版)計算後可拖曳擺放位置</li>
                     </ul>
                 </div>
 
