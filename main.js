@@ -13,8 +13,29 @@ async function loadModals() {
         const container = document.getElementById('modalContainer');
         if (container) {
             container.innerHTML = noticeHtml + guideHtml;
+            setupModalScrollLock();
         }
     } catch (err) {}
+}
+
+function setupModalScrollLock() {
+    document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
+        const modalBody = backdrop.querySelector('.modal-body');
+        if (!modalBody) return;
+
+        modalBody.addEventListener('wheel', (e) => {
+            const scrollTop = modalBody.scrollTop;
+            const scrollHeight = modalBody.scrollHeight;
+            const height = modalBody.clientHeight;
+            const delta = e.deltaY;
+
+            if (delta < 0 && scrollTop <= 0) {
+                e.preventDefault();
+            } else if (delta > 0 && (scrollTop + height >= scrollHeight)) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+    });
 }
 
 window.onload = async () => {
