@@ -1,18 +1,32 @@
 <div id="guideModal" class="modal-backdrop" style="display: none;">
     <div class="modal-card">
         <div class="modal-header">
-            <h3>📖 操作指南（點擊可展開）</h3>
+            <h3>📖 操作指南</h3>
             <button class="modal-close" onclick="closeGuideModal()">✕</button>
         </div>
         <div class="modal-body">
             
             <div class="notice-section collapsible">
                 <h4 class="notice-topic-title" onclick="toggleNoticeSection(this)">
-                    <span>撰寫中</span>
+                    <span>1. Excel 匯入功能</span>
                     <span class="collapse-icon">▼</span>
                 </h4>
                 <ul class="modal-notice-list" style="display: none;">
-                    <li>撰寫中</li>
+                    <li>點擊「匯入 Excel」按鈕，上傳您的 `.xlsx`、`.xls` 或 `.csv` 格式檔案。</li>
+                    <li>在彈出的對應視窗中，系統會自動偵測並對應「長」、「寬」、「厚」、「數量」的欄位。</li>
+                    <li>可依需求設定各欄位的篩選規則（如「僅選取」或「排除」特定數值），並選擇要「取代現有數據」或「新增至現有數據」。</li>
+                </ul>
+            </div>
+
+            <div class="notice-section collapsible">
+                <h4 class="notice-topic-title" onclick="toggleNoticeSection(this)">
+                    <span>2. 拖曳模式與位置調整</span>
+                    <span class="collapse-icon">▼</span>
+                </h4>
+                <ul class="modal-notice-list" style="display: none;">
+                    <li>點擊「開始計算」且產生排樣結果後，可點擊上方按鈕開啟「拖曳模式」。</li>
+                    <li>在拖曳模式下，您可以直接用滑鼠將排樣圖中的切片拖曳到同一個底板的其他位置，或跨底板分頁拖曳。</li>
+                    <li>系統會自動進行邊界與間距的貼齊檢查，若空間不足或超出範圍則會跳出提示。</li>
                 </ul>
             </div>
             
