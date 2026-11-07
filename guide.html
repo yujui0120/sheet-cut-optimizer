@@ -5,31 +5,78 @@
             <button class="modal-close" onclick="closeGuideModal()">✕</button>
         </div>
         <div class="modal-body">
-            
+
             <div class="notice-section collapsible">
                 <h4 class="notice-topic-title" onclick="toggleNoticeSection(this)">
-                    <span>1. Excel 匯入功能</span>
+                    <span>1. 參數設定說明</span>
                     <span class="collapse-icon">▼</span>
                 </h4>
                 <ul class="modal-notice-list" style="display: none;">
-                    <li>點擊「匯入 Excel」按鈕，上傳您的 `.xlsx`、`.xls` 或 `.csv` 格式檔案。</li>
-                    <li>在彈出的對應視窗中，系統會自動偵測並對應「長」、「寬」、「厚」、「數量」的欄位。</li>
-                    <li>可依需求設定各欄位的篩選規則（如「僅選取」或「排除」特定數值），並選擇要「取代現有數據」或「新增至現有數據」。</li>
+                    <li><strong>單位選擇：</strong>下拉選單切換 mm (公厘) 或 cm (公分)。切換單位時，系統會自動轉換已輸入的底板與切片數據。</li>
+                    <li><strong>底板尺寸 (長 × 寬)：</strong>設定木板原板長寬。點擊中間「⮂」按鈕可快速交換長寬。</li>
+                    <li><strong>鋸縫 / 間隔：</strong>鋸片裁切消耗寬度或 CNC 刀具直徑留白，不可低於 0。</li>
+                    <li><strong>允許旋轉：</strong>選擇「是」時，演算法會嘗試旋轉 90 度以取得最佳擺放；「否」則固定長寬方向（適用於有木紋方向限制的板材）。</li>
+                    <li><strong>裁切方式：</strong>
+                        <ul>
+                            <li><strong>CNC 裁切：</strong>自由套 nested 擺放，適用於異形或內部開孔裁切。</li>
+                            <li><strong>裁板機裁切：</strong>採用一刀切到底（Pass-through cut）邏輯，自動劃分鋸裁線。</li>
+                        </ul>
+                    </li>
                 </ul>
             </div>
 
             <div class="notice-section collapsible">
                 <h4 class="notice-topic-title" onclick="toggleNoticeSection(this)">
-                    <span>2. 拖曳模式與位置調整</span>
+                    <span>2. 切片需求清單管理</span>
                     <span class="collapse-icon">▼</span>
                 </h4>
                 <ul class="modal-notice-list" style="display: none;">
-                    <li>點擊「開始計算」且產生排樣結果後，可點擊上方按鈕開啟「拖曳模式」。</li>
-                    <li>在拖曳模式下，您可以直接用滑鼠將排樣圖中的切片拖曳到同一個底板的其他位置，或跨底板分頁拖曳。</li>
-                    <li>系統會自動進行邊界與間距的貼齊檢查，若空間不足或超出範圍則會跳出提示。</li>
+                    <li><strong>手動新增與編輯：</strong>點擊「+ 新增尺寸」增加列，支援 Enter 鍵快速切換下一個輸入框。列首「⮂」按鈕可對調單一項目的長寬。</li>
+                    <li><strong>顯示 / 隱藏厚度：</strong>點擊右上角「👁️ 顯示厚度」切換欄位展示，不影響長寬計算。</li>
+                    <li><strong>一鍵清空：</strong>點擊「🗑️ 清除」可移除目前所有輸入列並重置清單。</li>
+                    <li><strong>下載數據：</strong>點擊「📥 下載數據」將當前輸入的底板參數與需求清單匯出為 Excel 檔 (.xlsx)。</li>
                 </ul>
             </div>
-            
+
+            <div class="notice-section collapsible">
+                <h4 class="notice-topic-title" onclick="toggleNoticeSection(this)">
+                    <span>3. Excel 批次匯入與進階篩選</span>
+                    <span class="collapse-icon">▼</span>
+                </h4>
+                <ul class="modal-notice-list" style="display: none;">
+                    <li><strong>檔案支援：</strong>支援 .xlsx、.xls、.csv 格式，系統預設從第 8 行開始讀取資料列。</li>
+                    <li><strong>欄位自動與手動對應：</strong>彈出視窗提供選單，可彈性對應長、寬、厚、數量之直欄。</li>
+                    <li><strong>進階篩選規則：</strong>各欄位支援「無」、「僅選取 (include)」、「排除 (exclude)」規則過濾特定資料。</li>
+                    <li><strong>匯入模式：</strong>可選擇「取代現有數據」清空舊資料，或「新增至現有數據」追加至現有清單。</li>
+                </ul>
+            </div>
+
+            <div class="notice-section collapsible">
+                <h4 class="notice-topic-title" onclick="toggleNoticeSection(this)">
+                    <span>4. 計算結果與統計指標</span>
+                    <span class="collapse-icon">▼</span>
+                </h4>
+                <ul class="modal-notice-list" style="display: none;">
+                    <li><strong>平均面積利用率：</strong>(所有切片總面積 / 所需底板總面積) × 100%。</li>
+                    <li><strong>總共需要底板數：</strong>完成所有切片所需的最少底板數量。</li>
+                    <li><strong>切片總周長：</strong>所有切片周長之加總統計，方便估算刀具損耗與工時。</li>
+                    <li><strong>底板分頁標籤：</strong>點擊切換查看不同底板的個別排樣圖與單張利用率。</li>
+                </ul>
+            </div>
+
+            <div class="notice-section collapsible">
+                <h4 class="notice-topic-title" onclick="toggleNoticeSection(this)">
+                    <span>5. 互動式拖曳擺放與智能貼齊</span>
+                    <span class="collapse-icon">▼</span>
+                </h4>
+                <ul class="modal-notice-list" style="display: none;">
+                    <li><strong>開啟模式：</strong>計算完成後，點擊「🖐️ 拖曳模式」啟動互動圖層。</li>
+                    <li><strong>同頁與跨頁拖曳：</strong>可以直接拖曳切片微調位置，或將切片拖至上方底板分頁標籤進行跨板移動。</li>
+                    <li><strong>智能貼齊機制：</strong>接近其他切片邊緣或底板邊界時自動吸附邊緣。</li>
+                    <li><strong>重疊與邊界碰撞檢測：</strong>放置時若超出底板或與其他切片重疊，系統會阻擋並彈出警告提示。</li>
+                </ul>
+            </div>
+
         </div>
         <div class="modal-footer">
             <button class="btn btn-primary" style="width: auto; margin-top: 0;" onclick="closeGuideModal()">關閉</button>
