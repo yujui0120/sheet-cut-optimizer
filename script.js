@@ -8,6 +8,11 @@ let excelHeaders = [];
 let isThicknessVisible = false;
 let hasCalculated = false;
 
+let isDragMode = false;
+let currentActiveSheetIndex = 0;
+let draggedItemInfo = null;
+let globalDimColorMap = {};
+
 window.onload = async () => {
     let fetchSuccess = false;
     const loaderContentArea = document.getElementById('loaderContentArea');
@@ -124,28 +129,35 @@ function grantAccess() {
             addItemRow('', '', '', '', false);
             updateThicknessVisibilityUI();
             updatePerimeterDisplay();
-            document.getElementById('noticeModal').style.display = 'flex';
+            openNoticeModal();
         }, 300);
     } else {
         addItemRow('', '', '', '', false);
         updateThicknessVisibilityUI();
         updatePerimeterDisplay();
-        document.getElementById('noticeModal').style.display = 'flex';
+        openNoticeModal();
     }
 }
 
 function openNoticeModal() {
-    document.getElementById('noticeModal').style.display = 'flex';
+    const modal = document.getElementById('noticeModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        setTimeout(() => {
+            modal.classList.add('show');
+        }, 10);
+    }
 }
 
 function closeNoticeModal() {
     const noticeModal = document.getElementById('noticeModal');
     if (noticeModal) {
-        noticeModal.style.display = 'none';
+        noticeModal.classList.remove('show');
+        setTimeout(() => {
+            noticeModal.style.display = 'none';
+            checkAndRestoreDraft();
+        }, 300);
     }
-    setTimeout(() => {
-        checkAndRestoreDraft();
-    }, 200);
 }
 
 function openContactModal() {
@@ -632,20 +644,25 @@ function confirmExcelImport() {
     }
 }
 
-function isOverlapping(placedItems, freeRect, newW, newH) {
-    const rectToCheck = {
-        x: freeRect.x,
-        y: freeRect.y,
-        w: newW,
-        h: newH
-    };
-    for (const placed of placedItems) {
-        if (
-            rectToCheck.x < placed.x + placed.w &&
-            rectToCheck.x + rectToCheck.w > placed.x &&
-            rectToCheck.y < placed.y + placed.h &&
-            rectToCheck.y + rectToCheck.h > placed.y
-        ) {
+function isOverlapping(placedItems, rectToCheck, ignoreIndex = -1, gap = 0) {
+    for (let i = 0; i < placedItems.length; i++) {
+        if (i === ignoreIndex) continue;
+        const placed = placedItems[i];
+
+        const r1Left = rectToCheck.x;
+        const r1Right = rectToCheck.x + rectToCheck.w;
+        const r1Top = rectToCheck.y;
+        const r1Bottom = rectToCheck.y + rectToCheck.h;
+
+        const r2Left = placed.x;
+        const r2Right = placed.x + placed.w;
+        const r2Top = placed.y;
+        const r2Bottom = placed.y + placed.h;
+
+        const overlapX = (r1Left < r2Right + gap) && (r1Right + gap > r2Left);
+        const overlapY = (r1Top < r2Bottom + gap) && (r1Bottom + gap > r2Top);
+
+        if (overlapX && overlapY) {
             return true;
         }
     }
@@ -832,6 +849,10 @@ function executeCalculation() {
 
     unplacedItems.sort((a, b) => b.area - a.area);
 
+    globalDimColorMap = {};
+    const colors = ['#1e40af', '#16a34a', '#d97706', '#dc2626', '#4f46e5', '#0891b2', '#9333ea', '#059669', '#db2777', '#ca8a04', '#0d9488', '#7c3aed'];
+    let colorIndex = 0;
+
     allSheetsResults = [];
     let totalPlacedAreaAllSheets = 0;
     let calculatedTotalPerimeter = 0;
@@ -869,6 +890,12 @@ function executeCalculation() {
                 }
 
                 if (bestFit) {
+                    const key = `${item.w}_${item.h}`;
+                    if (!globalDimColorMap[key]) {
+                        globalDimColorMap[key] = colors[colorIndex % colors.length];
+                        colorIndex++;
+                    }
+
                     placedInThisSheet.push({
                         x: bestFit.x, y: bestFit.y,
                         w: bestFit.w, h: bestFit.h,
@@ -929,8 +956,16 @@ function executeCalculation() {
                     if (
                         item.w <= freeRect.w &&
                         item.h <= freeRect.h &&
-                        !isOverlapping(placedInThisSheet, freeRect, item.w, item.h)
+                        !isOverlapping(placedInThisSheet, {
+                            x: freeRect.x, y: freeRect.y, w: item.w, h: item.h
+                        }, -1, gap)
                     ) {
+                        const key = `${item.w}_${item.h}`;
+                        if (!globalDimColorMap[key]) {
+                            globalDimColorMap[key] = colors[colorIndex % colors.length];
+                            colorIndex++;
+                        }
+
                         placedInThisSheet.push({
                             x: freeRect.x,
                             y: freeRect.y,
@@ -951,8 +986,16 @@ function executeCalculation() {
                         if (
                             item.h <= freeRect.w &&
                             item.w <= freeRect.h &&
-                            !isOverlapping(placedInThisSheet, freeRect, item.h, item.w)
+                            !isOverlapping(placedInThisSheet, {
+                                x: freeRect.x, y: freeRect.y, w: item.h, h: item.w
+                            }, -1, gap)
                         ) {
+                            const key = `${item.w}_${item.h}`;
+                            if (!globalDimColorMap[key]) {
+                                globalDimColorMap[key] = colors[colorIndex % colors.length];
+                                colorIndex++;
+                            }
+
                             placedInThisSheet.push({
                                 x: freeRect.x,
                                 y: freeRect.y,
@@ -1002,13 +1045,58 @@ function executeCalculation() {
     exportPdfBtn.disabled = false;
     exportPdfBtn.removeAttribute('title');
 
+    const toggleDragBtn = document.getElementById('toggleDragBtn');
+    if (toggleDragBtn) {
+        toggleDragBtn.disabled = false;
+    }
+
     hasCalculated = true;
     localStorage.removeItem('wood_calc_draft');
 
+    currentActiveSheetIndex = 0;
     renderTabs(boardW, boardH);
     if (allSheetsResults.length > 0) {
         switchSheet(0, boardW, boardH);
     }
+}
+
+function toggleDragMode() {
+    isDragMode = !isDragMode;
+    const btn = document.getElementById('toggleDragBtn');
+    if (btn) {
+        btn.innerText = isDragMode ? '🖐️ 退出拖曳': '🖐️ 拖曳模式';
+        if (isDragMode) {
+            btn.classList.add('active-drag-mode');
+        } else {
+            btn.classList.remove('active-drag-mode');
+        }
+    }
+
+    const boardW = parseFloat(document.getElementById('boardW').value);
+    const boardH = parseFloat(document.getElementById('boardH').value);
+    switchSheet(currentActiveSheetIndex, boardW, boardH);
+}
+
+function updateSheetStats() {
+    const boardW = parseFloat(document.getElementById('boardW').value);
+    const boardH = parseFloat(document.getElementById('boardH').value);
+    const boardArea = boardW * boardH;
+
+    let totalPlacedAreaAllSheets = 0;
+    allSheetsResults.forEach((sheet) => {
+        let sheetArea = 0;
+        sheet.placedItems.forEach(item => {
+            sheetArea += item.origW * item.origH;
+        });
+        sheet.usage = ((sheetArea / boardArea) * 100).toFixed(1);
+        totalPlacedAreaAllSheets += sheetArea;
+    });
+
+    const totalBoardsArea = allSheetsResults.length * boardArea;
+    const avgUsage = totalBoardsArea > 0 ? ((totalPlacedAreaAllSheets / totalBoardsArea) * 100).toFixed(1): 0;
+    document.getElementById('statUsage').innerText = `${avgUsage}%`;
+
+    renderTabs(boardW, boardH);
 }
 
 function renderTabs(boardW, boardH) {
@@ -1017,18 +1105,32 @@ function renderTabs(boardW, boardH) {
 
     allSheetsResults.forEach((sheet, idx) => {
         const btn = document.createElement('button');
-        btn.className = `tab-btn ${idx === 0 ? 'active': ''}`;
+        btn.className = `tab-btn ${idx === currentActiveSheetIndex ? 'active': ''}`;
         btn.innerText = `底板 #${idx + 1} (${sheet.usage}%)`;
+
         btn.onclick = () => {
+            currentActiveSheetIndex = idx;
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             switchSheet(idx, boardW, boardH);
         };
+
+        btn.ondragover = (e) => {
+            e.preventDefault();
+            if (currentActiveSheetIndex !== idx) {
+                currentActiveSheetIndex = idx;
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                switchSheet(idx, boardW, boardH);
+            }
+        };
+
         tabsContainer.appendChild(btn);
     });
 }
 
 function switchSheet(index, boardW, boardH) {
+    currentActiveSheetIndex = index;
     const sheet = allSheetsResults[index];
     if (sheet) {
         renderCanvas(boardW, boardH, sheet.placedItems);
@@ -1039,6 +1141,10 @@ function renderCanvas(boardW, boardH, placedItems) {
     const container = document.getElementById('canvasContainer');
     container.innerHTML = '';
 
+    const canvasWrapper = document.createElement('div');
+    canvasWrapper.style.position = 'relative';
+    canvasWrapper.style.display = 'inline-block';
+
     const canvas = document.createElement('canvas');
 
     const maxCanvasWidth = Math.min(container.clientWidth - 32, 1000);
@@ -1046,9 +1152,124 @@ function renderCanvas(boardW, boardH, placedItems) {
 
     canvas.width = boardW * scale;
     canvas.height = boardH * scale;
-    container.appendChild(canvas);
+
+    canvasWrapper.appendChild(canvas);
+    container.appendChild(canvasWrapper);
 
     drawSheetToCanvas(canvas, boardW, boardH, placedItems, scale);
+
+    if (isDragMode) {
+        setupInteractiveDragOverlay(canvasWrapper, canvas, boardW, boardH, placedItems, scale);
+    }
+}
+
+function setupInteractiveDragOverlay(wrapper, canvas, boardW, boardH, placedItems, scale) {
+    const gap = parseFloat(document.getElementById('gap').value) || 0;
+    const allowRotation = document.getElementById('allowRotationSelect').value === 'true';
+
+    placedItems.forEach((item, itemIdx) => {
+        const overlay = document.createElement('div');
+        overlay.style.position = 'absolute';
+        overlay.style.left = `${item.x * scale}px`;
+        overlay.style.top = `${item.y * scale}px`;
+        overlay.style.width = `${item.w * scale}px`;
+        overlay.style.height = `${item.h * scale}px`;
+        overlay.style.cursor = 'grab';
+        overlay.style.border = '2px dashed #ffffff';
+        overlay.style.boxSizing = 'border-box';
+        overlay.style.backgroundColor = 'rgba(255, 255, 255, 0.15)';
+        overlay.draggable = true;
+
+        overlay.ondragstart = (e) => {
+            draggedItemInfo = {
+                fromSheetIndex: currentActiveSheetIndex,
+                itemIndex: itemIdx,
+                itemData: {
+                    ...item,
+                    origW: item.origW,
+                    origH: item.origH
+                }
+            };
+            overlay.style.opacity = '0.4';
+            e.dataTransfer.setData('text/plain', JSON.stringify(item));
+        };
+
+        overlay.ondragend = () => {
+            overlay.style.opacity = '1';
+        };
+
+        wrapper.appendChild(overlay);
+    });
+
+    wrapper.ondragover = (e) => {
+        e.preventDefault();
+    };
+
+    wrapper.ondrop = (e) => {
+        e.preventDefault();
+        if (!draggedItemInfo) return;
+
+        const canvasRect = canvas.getBoundingClientRect();
+        const dropPixelX = e.clientX - canvasRect.left;
+        const dropPixelY = e.clientY - canvasRect.top;
+
+        let newX = dropPixelX / scale;
+        let newY = dropPixelY / scale;
+
+        const originalItem = draggedItemInfo.itemData;
+        const targetSheet = allSheetsResults[currentActiveSheetIndex];
+        const targetPlacedItems = targetSheet.placedItems;
+
+        const isSameSheet = draggedItemInfo.fromSheetIndex === currentActiveSheetIndex;
+        const ignoreIdx = isSameSheet ? draggedItemInfo.itemIndex: -1;
+
+        let fitW = originalItem.w;
+        let fitH = originalItem.h;
+        let fitRotated = originalItem.rotated;
+
+        let canPlace = false;
+
+        const checkInBounds = (x, y, w, h) => x >= 0 && y >= 0 && (x + w) <= boardW + 0.001 && (y + h) <= boardH + 0.001;
+
+        if (checkInBounds(newX, newY, fitW, fitH) && !isOverlapping(targetPlacedItems, {
+            x: newX, y: newY, w: fitW, h: fitH
+        }, ignoreIdx, gap)) {
+            canPlace = true;
+        } else if (allowRotation) {
+            const rotW = originalItem.h;
+            const rotH = originalItem.w;
+            if (checkInBounds(newX, newY, rotW, rotH) && !isOverlapping(targetPlacedItems, {
+                x: newX, y: newY, w: rotW, h: rotH
+            }, ignoreIdx, gap)) {
+                canPlace = true;
+                fitW = rotW;
+                fitH = rotH;
+                fitRotated = !originalItem.rotated;
+            }
+        }
+
+        if (canPlace) {
+            const sourceSheet = allSheetsResults[draggedItemInfo.fromSheetIndex];
+            sourceSheet.placedItems.splice(draggedItemInfo.itemIndex, 1);
+
+            targetSheet.placedItems.push({
+                x: newX,
+                y: newY,
+                w: fitW,
+                h: fitH,
+                origW: originalItem.origW,
+                origH: originalItem.origH,
+                rotated: fitRotated
+            });
+
+            draggedItemInfo = null;
+            updateSheetStats();
+            switchSheet(currentActiveSheetIndex, boardW, boardH);
+        } else {
+            alert('放不下！該位置超出邊界、空間不足或發生重疊。');
+            draggedItemInfo = null;
+        }
+    };
 }
 
 function drawSheetToCanvas(canvas, boardW, boardH, placedItems, scale) {
@@ -1060,18 +1281,6 @@ function drawSheetToCanvas(canvas, boardW, boardH, placedItems, scale) {
     ctx.lineWidth = 2;
     ctx.strokeRect(0, 0, canvas.width, canvas.height);
 
-    const colors = ['#1e40af', '#16a34a', '#d97706', '#dc2626', '#4f46e5', '#0891b2', '#9333ea', '#059669', '#db2777', '#ca8a04', '#0d9488', '#7c3aed'];
-    const dimColorMap = {};
-    let colorIndex = 0;
-
-    placedItems.forEach(item => {
-        const key = `${item.origW}_${item.origH}`;
-        if (!dimColorMap[key]) {
-            dimColorMap[key] = colors[colorIndex % colors.length];
-            colorIndex++;
-        }
-    });
-
     placedItems.forEach((item) => {
         const x = item.x * scale;
         const y = item.y * scale;
@@ -1079,7 +1288,9 @@ function drawSheetToCanvas(canvas, boardW, boardH, placedItems, scale) {
         const h = item.h * scale;
 
         const key = `${item.origW}_${item.origH}`;
-        ctx.fillStyle = dimColorMap[key];
+        const fillColor = globalDimColorMap[key] || '#1e40af';
+
+        ctx.fillStyle = fillColor;
         ctx.globalAlpha = 0.85;
         ctx.fillRect(x, y, w, h);
 
