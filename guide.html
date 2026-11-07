@@ -14,8 +14,8 @@
                 <ul class="modal-notice-list" style="display: none;">
                     <li><strong>單位選擇：</strong>下拉選單切換 mm (公厘) 或 cm (公分)。切換單位時，系統會自動轉換已輸入的底板與切片數據。</li>
                     <li><strong>底板尺寸 (長 × 寬)：</strong>設定木板原板長寬。點擊中間「⮂」按鈕可快速交換長寬。</li>
-                    <li><strong>鋸縫 / 間隔：</strong>鋸片裁切消耗寬度或 CNC 刀具直徑留白，不可低於 0。</li>
-                    <li><strong>允許旋轉：</strong>選擇「是」時，演算法會嘗試旋轉 90 度以取得最佳擺放；「否」則固定長寬方向（適用於有木紋方向限制的板材）。</li>
+                    <li><strong>鋸縫 / 間隔：</strong>切片間的間距，不可低於 0。</li>
+                    <li><strong>允許旋轉：</strong>選擇「是」時，演算法會嘗試旋轉 90 度以取得最佳擺放；「否」則固定長寬方向。</li>
                     <li><strong>裁切方式：</strong>提供CNC裁切和裁板機裁切兩套裁切邏輯。</li>
                 </ul>
             </div>
@@ -26,10 +26,10 @@
                     <span class="collapse-icon">▼</span>
                 </h4>
                 <ul class="modal-notice-list" style="display: none;">
-                    <li><strong>手動新增與編輯：</strong>點擊「+ 新增尺寸」增加列，支援 Enter 鍵快速切換下一個輸入框。列首「⮂」按鈕可對調單一項目的長寬。</li>
-                    <li><strong>顯示 / 隱藏厚度：</strong>點擊右上角「👁️ 顯示厚度」切換欄位展示，不影響長寬計算。</li>
+                    <li><strong>手動新增與編輯：</strong>點擊「+ 新增尺寸」增加列，支援 Enter 鍵快速切換下一個輸入框。長寬之間「⮂」按鈕可對調單一項目的長寬。</li>
+                    <li><strong>顯示 / 隱藏厚度：</strong>點擊右上角「👁️ 顯示/隱藏厚度」切換欄位展示，不影響長寬計算。</li>
                     <li><strong>一鍵清空：</strong>點擊「🗑️ 清除」可移除目前所有輸入列並重置清單。</li>
-                    <li><strong>下載數據：</strong>點擊「📥 下載數據」將當前輸入的底板參數與需求清單匯出為 Excel 檔 (.xlsx)。</li>
+                    <li><strong>下載數據：</strong>點擊「📥 下載數據」將當前輸入的底板參數與需求清單匯出為 Excel 檔 (.xlsx)。<strong>問題回報需要數據時請上傳本檔案。</strong></li>
                 </ul>
             </div>
 
@@ -41,7 +41,7 @@
                 <ul class="modal-notice-list" style="display: none;">
                     <li><strong>檔案支援：</strong>支援 .xlsx、.xls、.csv 格式，系統預設從第 8 行開始讀取資料列。</li>
                     <li><strong>欄位自動與手動對應：</strong>彈出視窗提供選單，可彈性對應長、寬、厚、數量之直欄。</li>
-                    <li><strong>進階篩選規則：</strong>各欄位支援「無」、「僅選取 (include)」、「排除 (exclude)」規則過濾特定資料。</li>
+                    <li><strong>進階篩選規則：</strong>各欄位支援「無」、「僅選取」、「排除」規則過濾特定資料。</li>
                     <li><strong>匯入模式：</strong>可選擇「取代現有數據」清空舊資料，或「新增至現有數據」追加至現有清單。</li>
                 </ul>
             </div>
@@ -54,7 +54,7 @@
                 <ul class="modal-notice-list" style="display: none;">
                     <li><strong>平均面積利用率：</strong>(所有切片總面積 / 所需底板總面積) × 100%。</li>
                     <li><strong>總共需要底板數：</strong>完成所有切片所需的最少底板數量。</li>
-                    <li><strong>切片總周長：</strong>所有切片周長之加總統計，方便估算刀具損耗與工時。</li>
+                    <li><strong>切片總周長：</strong>所有切片周長之加總統計。</li>
                     <li><strong>底板分頁標籤：</strong>點擊切換查看不同底板的個別排樣圖與單張利用率。</li>
                 </ul>
             </div>
