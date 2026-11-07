@@ -1,4 +1,4 @@
-let currentUnit = 'mm';
+let currentUnit = '';
 let allSheetsResults = [];
 let lastTotalPerimeter = 0;
 let userIpAddress = '未知 IP';
@@ -6,12 +6,9 @@ let userIpAddress = '未知 IP';
 let parsedExcelData = [];
 let excelHeaders = [];
 let isThicknessVisible = false;
+let hasCalculated = false;
 
 window.onload = async () => {
-    addItemRow('', '', '', '', false);
-    updateThicknessVisibilityUI();
-    updatePerimeterDisplay();
-
     let fetchSuccess = false;
     const loaderContentArea = document.getElementById('loaderContentArea');
 
@@ -75,6 +72,7 @@ function toggleThicknessColumn(forceState = null) {
         isThicknessVisible = !isThicknessVisible;
     }
     updateThicknessVisibilityUI();
+    saveDraftToLocalStorage();
 }
 
 function updateThicknessVisibilityUI() {
@@ -118,19 +116,20 @@ function verifyPasscode() {
 }
 
 function grantAccess() {
-    const ipElement = document.getElementById('clientIpDisplay');
-    if (ipElement) {
-        ipElement.innerText = `您的設備 IP: ${userIpAddress}`;
-    }
-
     const loader = document.getElementById('initialLoader');
     if (loader) {
         loader.style.opacity = '0';
         setTimeout(() => {
             loader.style.display = 'none';
+            addItemRow('', '', '', '', false);
+            updateThicknessVisibilityUI();
+            updatePerimeterDisplay();
             document.getElementById('noticeModal').style.display = 'flex';
         }, 300);
     } else {
+        addItemRow('', '', '', '', false);
+        updateThicknessVisibilityUI();
+        updatePerimeterDisplay();
         document.getElementById('noticeModal').style.display = 'flex';
     }
 }
@@ -140,7 +139,13 @@ function openNoticeModal() {
 }
 
 function closeNoticeModal() {
-    document.getElementById('noticeModal').style.display = 'none';
+    const noticeModal = document.getElementById('noticeModal');
+    if (noticeModal) {
+        noticeModal.style.display = 'none';
+    }
+    setTimeout(() => {
+        checkAndRestoreDraft();
+    }, 200);
 }
 
 function openContactModal() {
@@ -149,6 +154,90 @@ function openContactModal() {
 
 function closeContactModal() {
     document.getElementById('contactModal').style.display = 'none';
+}
+
+function saveDraftToLocalStorage() {
+    if (hasCalculated) return;
+
+    const draftData = {
+        unitSelect: document.getElementById('unitSelect').value,
+        boardW: document.getElementById('boardW').value,
+        boardH: document.getElementById('boardH').value,
+        gap: document.getElementById('gap').value,
+        allowRotationSelect: document.getElementById('allowRotationSelect').value,
+        cutMethodSelect: document.getElementById('cutMethodSelect').value,
+        isThicknessVisible: isThicknessVisible,
+        items: []
+    };
+
+    document.querySelectorAll('.item-row').forEach(row => {
+        draftData.items.push({
+            w: row.querySelector('.item-w').value,
+            h: row.querySelector('.item-h').value,
+            d: row.querySelector('.item-d').value,
+            count: row.querySelector('.item-count').value
+        });
+    });
+
+    localStorage.setItem('wood_calc_draft', JSON.stringify(draftData));
+}
+
+function checkAndRestoreDraft() {
+    const saved = localStorage.getItem('wood_calc_draft');
+    if (!saved) return;
+
+    try {
+        const data = JSON.parse(saved);
+        let hasData = false;
+
+        if (data.unitSelect && data.unitSelect !== '') hasData = true;
+        if (data.boardW && data.boardW !== '2440') hasData = true;
+        if (data.boardH && data.boardH !== '1220') hasData = true;
+        if (data.gap && data.gap !== '3' && data.gap !== 3) hasData = true;
+        if (data.allowRotationSelect && data.allowRotationSelect !== '') hasData = true;
+        if (data.cutMethodSelect && data.cutMethodSelect !== '') hasData = true;
+
+        if (data.items && data.items.length > 0) {
+            data.items.forEach(it => {
+                if ((it.w && it.w !== '') || (it.h && it.h !== '') || (it.d && it.d !== '') || (it.count && it.count !== '')) {
+                    hasData = true;
+                }
+            });
+        }
+
+        if (!hasData) {
+            localStorage.removeItem('wood_calc_draft');
+            return;
+        }
+
+        if (confirm('偵測到您上次有尚未計算的輸入進度，請問是否需要還原？')) {
+            if (data.unitSelect) document.getElementById('unitSelect').value = data.unitSelect;
+            if (data.boardW) document.getElementById('boardW').value = data.boardW;
+            if (data.boardH) document.getElementById('boardH').value = data.boardH;
+            if (data.gap) document.getElementById('gap').value = data.gap;
+            if (data.allowRotationSelect) document.getElementById('allowRotationSelect').value = data.allowRotationSelect;
+            if (data.cutMethodSelect) document.getElementById('cutMethodSelect').value = data.cutMethodSelect;
+
+            if (data.unitSelect) currentUnit = data.unitSelect;
+            isThicknessVisible = !!data.isThicknessVisible;
+            updateThicknessVisibilityUI();
+
+            const container = document.getElementById('itemList');
+            container.innerHTML = '';
+            if (data.items && data.items.length > 0) {
+                data.items.forEach(it => {
+                    addItemRow(it.w, it.h, it.d, it.count, false);
+                });
+            } else {
+                addItemRow('', '', '', '', false);
+            }
+            updatePerimeterDisplay();
+        } else {
+            localStorage.removeItem('wood_calc_draft');
+        }
+    } catch (e) {
+        localStorage.removeItem('wood_calc_draft');
+    }
 }
 
 function validatePositiveInput(input, type = 'dimension') {
@@ -164,6 +253,7 @@ function validatePositiveInput(input, type = 'dimension') {
             input.value = 1;
         }
     }
+    saveDraftToLocalStorage();
 }
 
 function clearInvalidMark(element) {
@@ -177,6 +267,7 @@ function clearAllItems() {
         const container = document.getElementById('itemList');
         container.innerHTML = '';
         addItemRow('', '', '', '', false);
+        saveDraftToLocalStorage();
     }
 }
 
@@ -186,11 +277,11 @@ function addItemRow(w = '', h = '', d = '', count = '', focusFirst = false) {
     div.className = `item-row ${isThicknessVisible ? '': 'hide-d'}`;
     div.innerHTML = `
     <input type="number" class="form-control item-w" placeholder="長" value="${w}" min="1" step="any" onchange="validatePositiveInput(this, 'dimension'); clearInvalidMark(this);" onkeydown="handleKeyNavigation(event, this)">
-    <span>×</span>
+    <button type="button" class="btn-swap" title="交換長寬" onclick="swapRowDimensions(this)">⮂</button>
     <input type="number" class="form-control item-h" placeholder="寬" value="${h}" min="1" step="any" onchange="validatePositiveInput(this, 'dimension'); clearInvalidMark(this);" onkeydown="handleKeyNavigation(event, this)">
     <input type="number" class="form-control item-d ${isThicknessVisible ? '': 'hidden-col'}" placeholder="厚" value="${d}" min="0" step="any" onchange="validatePositiveInput(this, 'zeroAllowed'); clearInvalidMark(this);" onkeydown="handleKeyNavigation(event, this)">
     <input type="number" class="form-control item-count" placeholder="數量" value="${count}" min="0" step="1" onchange="validatePositiveInput(this, 'zeroAllowed'); clearInvalidMark(this);" onkeydown="handleKeyNavigation(event, this)">
-    <button class="btn-delete" title="刪除此列" onclick="this.parentElement.remove()">✕</button>
+    <button class="btn-delete" title="刪除此列" onclick="this.parentElement.remove(); saveDraftToLocalStorage();">✕</button>
     `;
     container.appendChild(div);
 
@@ -200,6 +291,30 @@ function addItemRow(w = '', h = '', d = '', count = '', focusFirst = false) {
         const inputW = div.querySelector('.item-w');
         if (inputW) inputW.focus();
     }
+    saveDraftToLocalStorage();
+}
+
+function swapRowDimensions(button) {
+    const row = button.closest('.item-row');
+    const wInput = row.querySelector('.item-w');
+    const hInput = row.querySelector('.item-h');
+
+    const temp = wInput.value;
+    wInput.value = hInput.value;
+    hInput.value = temp;
+
+    saveDraftToLocalStorage();
+}
+
+function swapBoardDimensions() {
+    const wInput = document.getElementById('boardW');
+    const hInput = document.getElementById('boardH');
+
+    const temp = wInput.value;
+    wInput.value = hInput.value;
+    hInput.value = temp;
+
+    saveDraftToLocalStorage();
 }
 
 function handleKeyNavigation(event, currentInput) {
@@ -229,11 +344,20 @@ function handleKeyNavigation(event, currentInput) {
                 }
             }
         }
+        saveDraftToLocalStorage();
     }
 }
 
 function handleUnitChange(newUnit) {
-    if (!newUnit || newUnit === currentUnit) return;
+    if (!newUnit) return;
+
+    if (!currentUnit) {
+        currentUnit = newUnit;
+        saveDraftToLocalStorage();
+        return;
+    }
+
+    if (newUnit === currentUnit) return;
 
     const factor = newUnit === 'cm' ? 0.1: 10;
 
@@ -252,6 +376,7 @@ function handleUnitChange(newUnit) {
 
     currentUnit = newUnit;
     updatePerimeterDisplay();
+    saveDraftToLocalStorage();
 }
 
 function updatePerimeterDisplay() {
@@ -344,7 +469,6 @@ function handleExcelUpload(event) {
             openExcelModal();
         } catch (err) {
             alert('解析 Excel 檔案失敗，請確認檔案格式是否正確。');
-            console.error(err);
         }
     };
     reader.readAsArrayBuffer(file);
@@ -504,6 +628,7 @@ function confirmExcelImport() {
     } else {
         alert(`成功依篩選條件匯入 ${importedRowsCount} 筆切片尺寸數據！`);
         closeExcelModal();
+        saveDraftToLocalStorage();
     }
 }
 
@@ -555,6 +680,21 @@ function splitFreeRectSaw(freeRects, freeRect, usedW, usedH, gap) {
 }
 
 function calculateLayout() {
+    const calcBtn = document.getElementById('calcBtn');
+    calcBtn.disabled = true;
+    calcBtn.innerText = '計算中...';
+
+    setTimeout(() => {
+        try {
+            executeCalculation();
+        } finally {
+            calcBtn.disabled = false;
+            calcBtn.innerText = '開始計算';
+        }
+    }, 50);
+}
+
+function executeCalculation() {
     document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
 
     let isValid = true;
@@ -862,6 +1002,9 @@ function calculateLayout() {
     exportPdfBtn.disabled = false;
     exportPdfBtn.removeAttribute('title');
 
+    hasCalculated = true;
+    localStorage.removeItem('wood_calc_draft');
+
     renderTabs(boardW, boardH);
     if (allSheetsResults.length > 0) {
         switchSheet(0, boardW, boardH);
@@ -959,33 +1102,44 @@ function drawSheetToCanvas(canvas, boardW, boardH, placedItems, scale) {
 function exportToPDF() {
     if (allSheetsResults.length === 0) return;
 
-    const boardW = parseFloat(document.getElementById('boardW').value);
-    const boardH = parseFloat(document.getElementById('boardH').value);
-    const container = document.getElementById('canvasContainer');
+    const exportPdfBtn = document.getElementById('exportPdfBtn');
+    exportPdfBtn.disabled = true;
+    exportPdfBtn.innerText = '產生 PDF 中...';
 
-    container.innerHTML = '';
+    setTimeout(() => {
+        try {
+            const boardW = parseFloat(document.getElementById('boardW').value);
+            const boardH = parseFloat(document.getElementById('boardH').value);
+            const container = document.getElementById('canvasContainer');
 
-    allSheetsResults.forEach((sheet, idx) => {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'pdf-sheet-wrapper';
+            container.innerHTML = '';
 
-        const title = document.createElement('div');
-        title.className = 'pdf-sheet-title';
-        title.innerText = `底板 #${idx + 1} (利用率: ${sheet.usage}%)`;
-        wrapper.appendChild(title);
+            allSheetsResults.forEach((sheet, idx) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'pdf-sheet-wrapper';
 
-        const canvas = document.createElement('canvas');
-        const scale = 800 / boardW;
-        canvas.width = boardW * scale;
-        canvas.height = boardH * scale;
+                const title = document.createElement('div');
+                title.className = 'pdf-sheet-title';
+                title.innerText = `底板 #${idx + 1} (利用率: ${sheet.usage}%)`;
+                wrapper.appendChild(title);
 
-        drawSheetToCanvas(canvas, boardW, boardH, sheet.placedItems, scale);
-        wrapper.appendChild(canvas);
+                const canvas = document.createElement('canvas');
+                const scale = 800 / boardW;
+                canvas.width = boardW * scale;
+                canvas.height = boardH * scale;
 
-        container.appendChild(wrapper);
-    });
+                drawSheetToCanvas(canvas, boardW, boardH, sheet.placedItems, scale);
+                wrapper.appendChild(canvas);
 
-    window.print();
+                container.appendChild(wrapper);
+            });
 
-    switchSheet(0, boardW, boardH);
+            window.print();
+
+            switchSheet(0, boardW, boardH);
+        } finally {
+            exportPdfBtn.disabled = false;
+            exportPdfBtn.innerText = '📄 匯出 PDF / 列印';
+        }
+    }, 50);
 }
