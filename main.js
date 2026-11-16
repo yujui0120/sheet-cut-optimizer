@@ -517,7 +517,11 @@ function openExcelModal() {
     });
 
     renderExcelPreviewTable();
-    modal.style.display = 'flex';
+    
+    if (modal) {
+        modal.style.display = 'flex';
+        setTimeout(() => { modal.classList.add('show'); }, 10);
+    }
 }
 
 window.closeExcelModal = function() {
